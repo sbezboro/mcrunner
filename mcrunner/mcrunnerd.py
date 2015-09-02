@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 
 try:
     # Python 2.x
@@ -15,8 +15,8 @@ import os
 import socket
 import sys
 
-from daemon import Daemon
-from server import MinecraftServer, ServerNotRunningException, ServerStartException
+from mcrunner.daemon import Daemon
+from mcrunner.server import MinecraftServer, ServerNotRunningException, ServerStartException
 
 
 # Statuses returned to MCRunner clients to indicate the type of response to various commands
