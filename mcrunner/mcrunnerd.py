@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-import ConfigParser
+try:
+    # Python 2.x
+    import ConfigParser
+except ImportError:
+    # Python 3.x
+    from configparser import ConfigParser
+
 import atexit
 import logging
 import logging.handlers

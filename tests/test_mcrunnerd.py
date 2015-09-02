@@ -69,6 +69,9 @@ class MCRunnerTestCase(unittest.TestCase):
         ))
         self.mock_conn.recv = mock.MagicMock(side_effect=recv_list)
 
+        self.mock_logger = mock.MagicMock()
+        self.daemon.create_logger = mock.MagicMock(return_value=self.mock_logger)
+
         self.daemon.socket_server = mock.MagicMock(return_value=mock_sock)
 
     def test_load_config(self):
@@ -150,7 +153,10 @@ class MCRunnerTestCase(unittest.TestCase):
         )
 
         daemon.load_config()
-        logger = daemon.create_logger()
+
+        with tempfile.NamedTemporaryFile() as f:
+            daemon.log_file = f.name
+            logger = daemon.create_logger()
 
         assert isinstance(logger, logging.getLoggerClass())
 
@@ -206,13 +212,10 @@ class MCRunnerTestCase(unittest.TestCase):
             SystemExit
         ])
 
-        mock_logger = mock.MagicMock()
-        self.daemon.create_logger = mock.MagicMock(return_value=mock_logger)
-
         self.daemon.run()
 
-        assert mock_logger.exception.call_count == 1
-        assert mock_logger.exception.call_args[0] == ('Error during socket connection',)
+        assert self.mock_logger.exception.call_count == 1
+        assert self.mock_logger.exception.call_args[0] == ('Error during socket connection',)
 
     def test_run_status(self):
         self._set_up_daemon_with_recv([
