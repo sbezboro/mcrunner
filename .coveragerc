@@ -1,5 +1,6 @@
 [run]
 branch = True
+source = mcrunner
 omit = mcrunner/daemon.py
 
 [report]
