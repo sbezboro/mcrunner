@@ -21,7 +21,7 @@ class MCRunnerControllerTestCase(unittest.TestCase):
 
     def setUp(self):
         self.config_file = tempfile.NamedTemporaryFile()
-        self.config_file.write(TEST_CONFIG)
+        self.config_file.write(bytes(TEST_CONFIG))
         self.config_file.flush()
 
     def tearDown(self):
