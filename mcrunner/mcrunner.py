@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import absolute_import, print_function
 
 try:
     # Python 2.x
@@ -11,7 +11,7 @@ except ImportError:
 import socket
 import sys
 
-from mcrunnerd import COMMAND_RESPONSE_STATUSES, MCRUNNERD_COMMAND_DELIMITER
+from mcrunner.mcrunnerd import COMMAND_RESPONSE_STATUSES, MCRUNNERD_COMMAND_DELIMITER
 
 
 class Controller(object):

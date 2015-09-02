@@ -12,6 +12,8 @@ from mcrunner.mcrunnerd import COMMAND_RESPONSE_STATUSES, MCRUNNERD_COMMAND_DELI
 TEST_CONFIG = """
 [mcrunner]
 url=/tmp/mcrunner.sock
+
+[empty_section]
 """
 
 
