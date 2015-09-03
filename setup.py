@@ -15,18 +15,8 @@ class PyTest(TestCommand):
         self.test_suite = True
 
     def run(self):
-        import subprocess
-        args = [
-            'py.test',
-            'mcrunner/tests/',
-            '-rs',
-            '--cov=mcrunner',
-            '--cov-report=term-missing',
-        ]
-        if self.pytest_args:
-            args.extend(self.pytest_args.split())
-
-        errno = subprocess.call(args)
+        import pytest
+        errno = pytest.main(self.pytest_args)
         raise SystemExit(errno)
 
 setup(
