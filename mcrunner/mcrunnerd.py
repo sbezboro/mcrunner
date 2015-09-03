@@ -3,10 +3,10 @@ from __future__ import absolute_import, print_function
 
 try:
     # Python 2.x
-    import ConfigParser
+    import ConfigParser as configparser
 except ImportError:
     # Python 3.x
-    from configparser import ConfigParser
+    import configparser
 
 import atexit
 import logging
@@ -55,7 +55,7 @@ class MCRunner(Daemon):
         """
         self.servers = {}
 
-        config = ConfigParser.ConfigParser()
+        config = configparser.ConfigParser()
         config.read(self.config_file)
 
         for section in config.sections():
@@ -107,7 +107,7 @@ class MCRunner(Daemon):
         """
         response = []
 
-        for server_name, server in self.servers.iteritems():
+        for server_name, server in self.servers.items():
             response.append('%s: %s' % (server_name, server.get_status()))
 
         return True, '\n'.join(response)
@@ -125,7 +125,7 @@ class MCRunner(Daemon):
         try:
             server.start()
         except ServerStartException as e:
-            return True, 'Could not start server! stderr:\n\n%s' % e.message
+            return True, 'Could not start server! stderr:\n\n%s' % str(e)
 
         return True, 'Starting Minecraft server "%s"' % name
 
@@ -245,11 +245,15 @@ class MCRunner(Daemon):
         self.logger.info('mcrunnerd stopped')
 
 
+def _output(string):
+    sys.stdout.write('%s\n' % string)
+
+
 def main():
     daemon = MCRunner()
 
     if len(sys.argv) == 1:
-        print("Usage: %s start|stop|restart" % sys.argv[0])
+        _output("Usage: %s start|stop|restart" % sys.argv[0])
         sys.exit(2)
 
     first_arg = sys.argv[1]
@@ -262,10 +266,10 @@ def main():
         elif first_arg == 'restart':
             daemon.restart()
         else:
-            print('Unknown command: %s' % first_arg)
+            _output('Unknown command: %s' % first_arg)
             sys.exit(2)
     else:
-        print("Usage: %s start|stop|restart" % sys.argv[0])
+        _output("Usage: %s start|stop|restart" % sys.argv[0])
         sys.exit(2)
 
 

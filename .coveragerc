@@ -1,7 +1,9 @@
 [run]
 branch = True
 source = mcrunner
-omit = mcrunner/daemon.py
+omit =
+    mcrunner/daemon.py
+    mcrunner/tests/*
 
 [report]
 exclude_lines =

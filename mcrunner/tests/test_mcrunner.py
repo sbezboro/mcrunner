@@ -9,7 +9,7 @@ from mcrunner.mcrunner import Controller
 from mcrunner.mcrunnerd import COMMAND_RESPONSE_STATUSES, MCRUNNERD_COMMAND_DELIMITER
 
 
-TEST_CONFIG = """
+TEST_CONFIG = b"""
 [mcrunner]
 url=/tmp/mcrunner.sock
 
@@ -21,7 +21,7 @@ class MCRunnerControllerTestCase(unittest.TestCase):
 
     def setUp(self):
         self.config_file = tempfile.NamedTemporaryFile()
-        self.config_file.write(bytes(TEST_CONFIG))
+        self.config_file.write(TEST_CONFIG)
         self.config_file.flush()
 
     def tearDown(self):
@@ -59,7 +59,7 @@ class MCRunnerControllerTestCase(unittest.TestCase):
             'some sample response message'
         ])
 
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunner._output') as mock_print:
             controller.send_mcrunnerd_package('some_package')
 
         assert mock_sock.sendall.call_count == 1
@@ -83,7 +83,7 @@ class MCRunnerControllerTestCase(unittest.TestCase):
             COMMAND_RESPONSE_STATUSES['DONE']
         ])
 
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunner._output') as mock_print:
             controller.send_mcrunnerd_package('some_package')
 
         assert mock_sock.sendall.call_count == 1
@@ -101,7 +101,7 @@ class MCRunnerControllerTestCase(unittest.TestCase):
 
         controller.socket_client = mock.MagicMock(side_effect=socket.error)
 
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunner._output') as mock_print:
             controller.send_mcrunnerd_package('some_package')
 
         assert mock_print.call_count == 1
@@ -116,14 +116,14 @@ class MCRunnerControllerTestCase(unittest.TestCase):
         controller.socket_client = mock.MagicMock(return_value=mock_sock)
         mock_sock.sendall = mock.MagicMock(side_effect=socket_error)
 
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunner._output') as mock_print:
             controller.send_mcrunnerd_package('some_package')
 
         assert mock_sock.sendall.call_count == 1
         assert mock_sock.sendall.call_args[0] == ('some_package',)
 
         assert mock_print.call_count == 1
-        assert mock_print.call_args[0] == ('Error sending mcrunnerd package: %s' % socket_error.message,)
+        assert mock_print.call_args[0] == ('Error sending mcrunnerd package: %s' % str(socket_error),)
 
         assert mock_sock.close.call_count == 1
 
@@ -161,9 +161,16 @@ class MCRunnerControllerTestCase(unittest.TestCase):
 
 class MCRunnerMainTestCase(unittest.TestCase):
 
+    def test_output(self):
+        with mock.patch.object(sys.stdout, 'write') as mock_write:
+            mcrunner._output('test')
+
+        assert mock_write.call_count == 1
+        assert mock_write.call_args[0] == ('test\n',)
+
     @mock.patch.object(sys, 'argv', ['mcrunner'])
     def test_too_few_args(self):
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunner._output') as mock_print:
             with self.assertRaises(SystemExit):
                 mcrunner.main()
 
@@ -182,7 +189,7 @@ class MCRunnerMainTestCase(unittest.TestCase):
 
     @mock.patch.object(sys, 'argv', ['mcrunner', 'start'])
     def test_start_too_few_args(self):
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunner._output') as mock_print:
             with self.assertRaises(SystemExit):
                 mcrunner.main()
 
@@ -201,7 +208,7 @@ class MCRunnerMainTestCase(unittest.TestCase):
 
     @mock.patch.object(sys, 'argv', ['mcrunner', 'command'])
     def test_command_too_few_args_no_server(self):
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunner._output') as mock_print:
             with self.assertRaises(SystemExit):
                 mcrunner.main()
 
@@ -210,7 +217,7 @@ class MCRunnerMainTestCase(unittest.TestCase):
 
     @mock.patch.object(sys, 'argv', ['mcrunner', 'command', 'server_1'])
     def test_command_too_few_args(self):
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunner._output') as mock_print:
             with self.assertRaises(SystemExit):
                 mcrunner.main()
 
@@ -234,7 +241,7 @@ class MCRunnerMainTestCase(unittest.TestCase):
 
     @mock.patch.object(sys, 'argv', ['mcrunner', 'bad_command'])
     def test_bad_arguments(self):
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunner._output') as mock_print:
             with self.assertRaises(SystemExit):
                 mcrunner.main()
 

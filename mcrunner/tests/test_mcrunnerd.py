@@ -19,7 +19,7 @@ from mcrunner.server import (
 )
 
 
-TEST_CONFIG = """
+TEST_CONFIG = b"""
 [mcrunnerd]
 logfile=/var/log/mcrunner/mcrunnerd.log
 
@@ -44,7 +44,7 @@ class MCRunnerTestCase(unittest.TestCase):
 
     def setUp(self):
         self.config_file = tempfile.NamedTemporaryFile()
-        self.config_file.write(bytes(TEST_CONFIG))
+        self.config_file.write(TEST_CONFIG)
         self.config_file.flush()
 
         self.pid_file = tempfile.NamedTemporaryFile()
@@ -173,10 +173,9 @@ class MCRunnerTestCase(unittest.TestCase):
 
         status = daemon.get_status()
 
-        assert status == (
-            True,
-            'survival: some status\ncreative: some other status'
-        )
+        assert status[0] is True
+        assert 'survival: some status' in status[1]
+        assert 'creative: some other status' in status[1]
 
     def test_on_exit(self):
         daemon = MCRunner(
@@ -369,23 +368,30 @@ class MCRunnerTestCase(unittest.TestCase):
 
 class MCRunnerMainTestCase(unittest.TestCase):
 
+    def test_output(self):
+        with mock.patch.object(sys.stdout, 'write') as mock_write:
+            mcrunnerd._output('test')
+
+        assert mock_write.call_count == 1
+        assert mock_write.call_args[0] == ('test\n',)
+
     @mock.patch.object(sys, 'argv', ['mcrunnerd'])
     def test_too_few_args(self):
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
             with self.assertRaises(SystemExit):
                 mcrunnerd.main()
 
-        assert mock_print.call_count == 1
-        assert mock_print.call_args[0] == ('Usage: mcrunnerd start|stop|restart',)
+        assert mock_output.call_count == 1
+        assert mock_output.call_args[0] == ('Usage: mcrunnerd start|stop|restart',)
 
     @mock.patch.object(sys, 'argv', ['mcrunnerd', 'blah', 'blah'])
     def test_too_many_args(self):
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
             with self.assertRaises(SystemExit):
                 mcrunnerd.main()
 
-        assert mock_print.call_count == 1
-        assert mock_print.call_args[0] == ('Usage: mcrunnerd start|stop|restart',)
+        assert mock_output.call_count == 1
+        assert mock_output.call_args[0] == ('Usage: mcrunnerd start|stop|restart',)
 
     @mock.patch.object(sys, 'argv', ['mcrunnerd', 'start'])
     def test_start(self):
@@ -416,9 +422,9 @@ class MCRunnerMainTestCase(unittest.TestCase):
 
     @mock.patch.object(sys, 'argv', ['mcrunnerd', 'bad_command'])
     def test_bad_command(self):
-        with mock.patch('__builtin__.print') as mock_print:
+        with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
             with self.assertRaises(SystemExit):
                 mcrunnerd.main()
 
-        assert mock_print.call_count == 1
-        assert mock_print.call_args[0] == ('Unknown command: bad_command',)
+        assert mock_output.call_count == 1
+        assert mock_output.call_args[0] == ('Unknown command: bad_command',)

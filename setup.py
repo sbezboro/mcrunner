@@ -18,7 +18,7 @@ class PyTest(TestCommand):
         import subprocess
         args = [
             'py.test',
-            'tests/',
+            'mcrunner/tests/',
             '-rs',
             '--cov=mcrunner',
             '--cov-report=term-missing',

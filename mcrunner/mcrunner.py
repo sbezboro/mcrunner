@@ -3,10 +3,10 @@ from __future__ import absolute_import, print_function
 
 try:
     # Python 2.x
-    import ConfigParser
+    import ConfigParser as configparser
 except ImportError:
     # Python 3.x
-    from configparser import ConfigParser
+    import configparser
 
 import socket
 import sys
@@ -43,7 +43,7 @@ class Controller(object):
         """
         Load config from file.
         """
-        config = ConfigParser.ConfigParser()
+        config = configparser.ConfigParser()
         config.read(self.config_file)
 
         for section in config.sections():
@@ -57,20 +57,20 @@ class Controller(object):
         try:
             sock = self.socket_client()
         except socket.error:
-            print('Could not connect to socket - is mcrunnerd running?')
+            _output('Could not connect to socket - is mcrunnerd running?')
             return
 
         try:
             sock.sendall(package)
         except Exception as e:
-            print('Error sending mcrunnerd package: %s' % e)
+            _output('Error sending mcrunnerd package: %s' % e)
         else:
             # get command status
             data = sock.recv(1)
 
             if data == COMMAND_RESPONSE_STATUSES['MESSAGE']:
                 data = sock.recv(1000)
-                print(data)
+                _output(data)
         finally:
             sock.close()
 
@@ -99,18 +99,23 @@ class Controller(object):
             ))
 
 
+def _output(string):
+    sys.stdout.write('%s\n' % string)
+
+
 def main():
     controller = Controller()
 
     if len(sys.argv) == 1:
-        print('Usage: %s <command> [arguments]' % sys.argv[0])
+
+        _output('Usage: %s <command> [arguments]' % sys.argv[0])
         sys.exit(2)
 
     if sys.argv[1] == 'status':
         controller.handle_mcrunnerd_action(sys.argv[1])
     elif sys.argv[1] in ('start', 'stop'):
         if len(sys.argv) == 2:
-            print('Usage: %s %s <server_name>' % (sys.argv[0], sys.argv[1]))
+            _output('Usage: %s %s <server_name>' % (sys.argv[0], sys.argv[1]))
             sys.exit(2)
 
         server = sys.argv[2]
@@ -118,16 +123,16 @@ def main():
         controller.handle_server_action(sys.argv[1], server)
     elif sys.argv[1] == 'command':
         if len(sys.argv) == 2:
-            print('Usage: %s %s <server_name> <command>' % (sys.argv[0], sys.argv[1]))
+            _output('Usage: %s %s <server_name> <command>' % (sys.argv[0], sys.argv[1]))
             sys.exit(2)
 
         if len(sys.argv) == 3:
-            print('Usage: %s %s %s <command>' % (sys.argv[0], sys.argv[1], sys.argv[2]))
+            _output('Usage: %s %s %s <command>' % (sys.argv[0], sys.argv[1], sys.argv[2]))
             sys.exit(2)
 
         controller.handle_server_action(sys.argv[1], sys.argv[2], command=sys.argv[3])
     else:
-        print("Unknown command: %s" % sys.argv[1])
+        _output("Unknown command: %s" % sys.argv[1])
         sys.exit(2)
 
 
