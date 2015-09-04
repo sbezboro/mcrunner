@@ -21,12 +21,12 @@ class PyTest(TestCommand):
         raise SystemExit(errno)
 
 install_requires = []
-if sys.version_info < (3,2):
+if sys.version_info < (3,3):
     install_requires.append('subprocess32==3.2.6')
 
 setup(
     name='mcrunner',
-    version='0.1.0-dev',
+    version='0.1.0-dev0',
     description='Minecraft server monitoring and control system for UNIX',
     url='https://github.com/sbezboro/mcrunner',
     author='Sergei Bezborodko',
