@@ -8,7 +8,6 @@ import unittest
 
 from mcrunner import mcrunnerd
 from mcrunner.mcrunnerd import (
-    COMMAND_RESPONSE_STATUSES,
     MCRunner,
     MCRUNNERD_COMMAND_DELIMITER
 )
@@ -63,16 +62,18 @@ class MCRunnerTestCase(unittest.TestCase):
         )
 
         mock_sock = mock.MagicMock()
-        self.mock_conn = mock.MagicMock()
+        mock_conn = mock.MagicMock()
         mock_sock.accept = mock.MagicMock(return_value=(
-            self.mock_conn, 'address'
+            mock_conn, 'address'
         ))
-        self.mock_conn.recv = mock.MagicMock(side_effect=recv_list)
 
         self.mock_logger = mock.MagicMock()
         self.daemon.create_logger = mock.MagicMock(return_value=self.mock_logger)
 
         self.daemon.socket_server = mock.MagicMock(return_value=mock_sock)
+
+        self.mock_connection = mock.MagicMock()
+        self.mock_connection.receive_message = mock.MagicMock(side_effect=recv_list)
 
     def test_load_config(self):
         daemon = MCRunner(
@@ -171,11 +172,59 @@ class MCRunnerTestCase(unittest.TestCase):
         daemon.servers['survival'].get_status = mock.MagicMock(return_value='some status')
         daemon.servers['creative'].get_status = mock.MagicMock(return_value='some other status')
 
-        status = daemon.get_status()
+        mock_connection = mock.MagicMock()
 
-        assert status[0] is True
-        assert 'survival: some status' in status[1]
-        assert 'creative: some other status' in status[1]
+        daemon.get_status(mock_connection)
+
+        status = mock_connection.send_message.call_args[0][0]
+
+        assert 'survival: some status' in status
+        assert 'creative: some other status' in status
+
+    def test_start_minecraft_server_exception(self):
+        daemon = MCRunner(
+            config_file=self.config_file.name,
+            pid_file=self.pid_file.name
+        )
+
+        daemon.load_config()
+        daemon.logger = mock.MagicMock()
+
+        with mock.patch.object(MinecraftServer, 'start', side_effect=ServerStartException):
+            daemon.start_minecraft_server('survival')
+
+    def test_start_minecraft_server_invalid(self):
+        daemon = MCRunner(
+            config_file=self.config_file.name,
+            pid_file=self.pid_file.name
+        )
+
+        daemon.load_config()
+        daemon.logger = mock.MagicMock()
+
+        daemon.start_minecraft_server('bad_server')
+
+    def test_stop_minecraft_server(self):
+        daemon = MCRunner(
+            config_file=self.config_file.name,
+            pid_file=self.pid_file.name
+        )
+
+        daemon.load_config()
+        daemon.logger = mock.MagicMock()
+
+        daemon.stop_minecraft_server('survival')
+
+    def test_stop_minecraft_server_invalid(self):
+        daemon = MCRunner(
+            config_file=self.config_file.name,
+            pid_file=self.pid_file.name
+        )
+
+        daemon.load_config()
+        daemon.logger = mock.MagicMock()
+
+        daemon.stop_minecraft_server('bad_server')
 
     def test_on_exit(self):
         daemon = MCRunner(
@@ -200,10 +249,11 @@ class MCRunnerTestCase(unittest.TestCase):
             SystemExit
         ])
 
-        self.daemon.run()
+        with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+            self.daemon.run()
 
-        assert self.mock_conn.sendall.call_count == 1
-        assert self.mock_conn.sendall.call_args[0] == (str(COMMAND_RESPONSE_STATUSES['DONE']),)
+        assert self.mock_connection.receive_message.call_count == 2
+        assert self.mock_connection.send_message.call_count == 0
 
     def test_run_socket_error(self):
         self._set_up_daemon_with_recv([
@@ -211,7 +261,8 @@ class MCRunnerTestCase(unittest.TestCase):
             SystemExit
         ])
 
-        self.daemon.run()
+        with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+            self.daemon.run()
 
         assert self.mock_logger.exception.call_count == 1
         assert self.mock_logger.exception.call_args[0] == ('Error during socket connection',)
@@ -222,20 +273,17 @@ class MCRunnerTestCase(unittest.TestCase):
             SystemExit
         ])
 
-        self.daemon.get_status = mock.MagicMock(return_value=(
-            True,
-            'some status'
-        ))
+        with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+            self.daemon.run()
 
-        self.daemon.run()
+        assert self.mock_connection.send_message.call_count == 1
 
-        assert self.daemon.get_status.call_count == 1
+        status = self.mock_connection.send_message.call_args[0][0]
 
-        assert self.mock_conn.sendall.call_count == 2
-        assert self.mock_conn.sendall.call_args_list[0][0] == (str(COMMAND_RESPONSE_STATUSES['MESSAGE']),)
-        assert self.mock_conn.sendall.call_args_list[1][0] == ('some status',)
+        assert 'survival: Not running' in status
+        assert 'creative: Not running' in status
 
-        assert self.mock_conn.close.call_count == 2
+        assert self.mock_connection.close.call_count == 2
 
     def test_run_with_start_server(self):
         self._set_up_daemon_with_recv([
@@ -243,14 +291,15 @@ class MCRunnerTestCase(unittest.TestCase):
             SystemExit
         ])
 
-        with mock.patch.object(MinecraftServer, 'start') as mock_start:
-            self.daemon.run()
+        with mock.patch.object(MinecraftServer, '_start_jar') as mock_start:
+            with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+                self.daemon.run()
 
         assert mock_start.call_count == 1
 
-        assert self.mock_conn.sendall.call_count == 2
-        assert self.mock_conn.sendall.call_args_list[0][0] == (str(COMMAND_RESPONSE_STATUSES['MESSAGE']),)
-        assert self.mock_conn.sendall.call_args_list[1][0] == ('Starting Minecraft server "survival"',)
+        assert self.mock_connection.send_message.call_count == 2
+        assert self.mock_connection.send_message.call_args_list[0][0] == ('Starting server survival...',)
+        assert self.mock_connection.send_message.call_args_list[1][0] == ('Server survival started.',)
 
     def test_run_with_start_invalid_server(self):
         self._set_up_daemon_with_recv([
@@ -258,11 +307,11 @@ class MCRunnerTestCase(unittest.TestCase):
             SystemExit
         ])
 
-        self.daemon.run()
+        with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+            self.daemon.run()
 
-        assert self.mock_conn.sendall.call_count == 2
-        assert self.mock_conn.sendall.call_args_list[0][0] == (str(COMMAND_RESPONSE_STATUSES['MESSAGE']),)
-        assert self.mock_conn.sendall.call_args_list[1][0] == ('Minecraft server "bad_server_name" not defined',)
+        assert self.mock_connection.send_message.call_count == 1
+        assert self.mock_connection.send_message.call_args[0] == ('Minecraft server "bad_server_name" not defined',)
 
     def test_run_with_start_server_running(self):
         self._set_up_daemon_with_recv([
@@ -271,13 +320,13 @@ class MCRunnerTestCase(unittest.TestCase):
         ])
 
         with mock.patch.object(MinecraftServer, 'start', side_effect=ServerStartException('exc')) as mock_start:
-            self.daemon.run()
+            with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+                self.daemon.run()
 
         assert mock_start.call_count == 1
 
-        assert self.mock_conn.sendall.call_count == 2
-        assert self.mock_conn.sendall.call_args_list[0][0] == (str(COMMAND_RESPONSE_STATUSES['MESSAGE']),)
-        assert self.mock_conn.sendall.call_args_list[1][0] == ('Could not start server! stderr:\n\nexc',)
+        assert self.mock_connection.send_message.call_count == 1
+        assert self.mock_connection.send_message.call_args[0] == ('Could not start server! stderr:\n\nexc',)
 
     def test_run_with_stop_server(self):
         self._set_up_daemon_with_recv([
@@ -285,14 +334,13 @@ class MCRunnerTestCase(unittest.TestCase):
             SystemExit
         ])
 
-        with mock.patch.object(MinecraftServer, 'stop') as mock_stop:
-            self.daemon.run()
+        with mock.patch.object(MinecraftServer, 'pipe'):
+            with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+                self.daemon.run()
 
-        assert mock_stop.call_count == 1
-
-        assert self.mock_conn.sendall.call_count == 2
-        assert self.mock_conn.sendall.call_args_list[0][0] == (str(COMMAND_RESPONSE_STATUSES['MESSAGE']),)
-        assert self.mock_conn.sendall.call_args_list[1][0] == ('Stopping Minecraft server "survival"',)
+        assert self.mock_connection.send_message.call_count == 2
+        assert self.mock_connection.send_message.call_args_list[0][0] == ('Stopping server survival...',)
+        assert self.mock_connection.send_message.call_args_list[1][0] == ('Server survival stopped.',)
 
     def test_run_with_stop_invalid_server(self):
         self._set_up_daemon_with_recv([
@@ -300,11 +348,11 @@ class MCRunnerTestCase(unittest.TestCase):
             SystemExit
         ])
 
-        self.daemon.run()
+        with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+            self.daemon.run()
 
-        assert self.mock_conn.sendall.call_count == 2
-        assert self.mock_conn.sendall.call_args_list[0][0] == (str(COMMAND_RESPONSE_STATUSES['MESSAGE']),)
-        assert self.mock_conn.sendall.call_args_list[1][0] == ('Minecraft server "bad_server_name" not defined',)
+        assert self.mock_connection.send_message.call_count == 1
+        assert self.mock_connection.send_message.call_args[0] == ('Minecraft server "bad_server_name" not defined',)
 
     def test_run_with_stop_server_not_running(self):
         self._set_up_daemon_with_recv([
@@ -313,13 +361,13 @@ class MCRunnerTestCase(unittest.TestCase):
         ])
 
         with mock.patch.object(MinecraftServer, 'stop', side_effect=ServerNotRunningException) as mock_stop:
-            self.daemon.run()
+            with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+                self.daemon.run()
 
         assert mock_stop.call_count == 1
 
-        assert self.mock_conn.sendall.call_count == 2
-        assert self.mock_conn.sendall.call_args_list[0][0] == (str(COMMAND_RESPONSE_STATUSES['MESSAGE']),)
-        assert self.mock_conn.sendall.call_args_list[1][0] == ('Minecraft server "survival" not running',)
+        assert self.mock_connection.send_message.call_count == 1
+        assert self.mock_connection.send_message.call_args[0] == ('Minecraft server "survival" not running',)
 
     def test_run_with_command(self):
         self._set_up_daemon_with_recv([
@@ -327,15 +375,12 @@ class MCRunnerTestCase(unittest.TestCase):
             SystemExit
         ])
 
-        with mock.patch.object(MinecraftServer, 'run_command') as mock_command:
-            self.daemon.run()
+        with mock.patch.object(MinecraftServer, 'pipe'):
+            with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+                self.daemon.run()
 
-        assert mock_command.call_count == 1
-        assert mock_command.call_args[0] == ('say test',)
-
-        assert self.mock_conn.sendall.call_count == 2
-        assert self.mock_conn.sendall.call_args_list[0][0] == (str(COMMAND_RESPONSE_STATUSES['MESSAGE']),)
-        assert self.mock_conn.sendall.call_args_list[1][0] == ('Sent command to Minecraft server "survival": "say test"',)
+        assert self.mock_connection.send_message.call_count == 1
+        assert self.mock_connection.send_message.call_args[0] == ('Sent command to Minecraft server "survival": "say test"',)
 
     def test_run_with_command_invalid_server(self):
         self._set_up_daemon_with_recv([
@@ -343,11 +388,11 @@ class MCRunnerTestCase(unittest.TestCase):
             SystemExit
         ])
 
-        self.daemon.run()
+        with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+            self.daemon.run()
 
-        assert self.mock_conn.sendall.call_count == 2
-        assert self.mock_conn.sendall.call_args_list[0][0] == (str(COMMAND_RESPONSE_STATUSES['MESSAGE']),)
-        assert self.mock_conn.sendall.call_args_list[1][0] == ('Minecraft server "bad_server_name" not defined',)
+        assert self.mock_connection.send_message.call_count == 1
+        assert self.mock_connection.send_message.call_args[0] == ('Minecraft server "bad_server_name" not defined',)
 
     def test_run_with_command_not_running(self):
         self._set_up_daemon_with_recv([
@@ -356,14 +401,14 @@ class MCRunnerTestCase(unittest.TestCase):
         ])
 
         with mock.patch.object(MinecraftServer, 'run_command', side_effect=ServerNotRunningException) as mock_command:
-            self.daemon.run()
+            with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+                self.daemon.run()
 
         assert mock_command.call_count == 1
         assert mock_command.call_args[0] == ('say test',)
 
-        assert self.mock_conn.sendall.call_count == 2
-        assert self.mock_conn.sendall.call_args_list[0][0] == (str(COMMAND_RESPONSE_STATUSES['MESSAGE']),)
-        assert self.mock_conn.sendall.call_args_list[1][0] == ('Minecraft server "survival" not running',)
+        assert self.mock_connection.send_message.call_count == 1
+        assert self.mock_connection.send_message.call_args[0] == ('Minecraft server "survival" not running',)
 
 
 class MCRunnerMainTestCase(unittest.TestCase):

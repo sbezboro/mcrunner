@@ -15,15 +15,10 @@ import os
 import socket
 import sys
 
+from mcrunner.connection import ServerSocketConnection
 from mcrunner.daemon import Daemon
 from mcrunner.server import MinecraftServer, ServerNotRunningException, ServerStartException
 
-
-# Statuses returned to MCRunner clients to indicate the type of response to various commands
-COMMAND_RESPONSE_STATUSES = {
-    'MESSAGE': '0',
-    'DONE': '1'
-}
 
 MCRUNNERD_COMMAND_DELIMITER = '|+|'
 
@@ -101,7 +96,7 @@ class MCRunner(Daemon):
 
         return logger
 
-    def get_status(self):
+    def get_status(self, connection):
         """
         Return a string representation of all server statuses.
         """
@@ -110,66 +105,72 @@ class MCRunner(Daemon):
         for server_name, server in self.servers.items():
             response.append('%s: %s' % (server_name, server.get_status()))
 
-        return True, '\n'.join(response)
+        connection.send_message('\n'.join(response))
 
-    def start_minecraft_server(self, name):
+    def start_minecraft_server(self, name, connection=None):
         """
         Attempt to start a server of a given name.
         """
         server = self.servers.get(name)
         if not server:
-            return True, 'Minecraft server "%s" not defined' % name
+            if connection:
+                connection.send_message('Minecraft server "%s" not defined' % name)
+            return
 
         self.logger.info('Starting Minecraft server "%s"', name)
 
         try:
-            server.start()
+            server.start(connection=connection)
         except ServerStartException as e:
-            return True, 'Could not start server! stderr:\n\n%s' % str(e)
+            message = 'Could not start server! stderr:\n\n%s' % str(e)
 
-        return True, 'Starting Minecraft server "%s"' % name
+            self.logger.info(message)
+            if connection:
+                connection.send_message(message)
 
-    def stop_minecraft_server(self, name):
+    def stop_minecraft_server(self, name, connection=None):
         """
         Attempt to stop a server of a given name.
         """
         server = self.servers.get(name)
         if not server:
-            return True, 'Minecraft server "%s" not defined' % name
+            if connection:
+                connection.send_message('Minecraft server "%s" not defined' % name)
+            return
 
         self.logger.info('Stopping Minecraft server "%s"', name)
 
         try:
-            server.stop()
+            server.stop(connection=connection)
         except ServerNotRunningException:
             message = 'Minecraft server "%s" not running' % name
 
             self.logger.info(message)
-            return True, message
+            if connection:
+                connection.send_message(message)
 
-        return True, 'Stopping Minecraft server "%s"' % name
-
-    def send_command(self, name, command):
+    def send_command(self, name, command, connection):
         """
         Send command string to server of a given name.
         """
         server = self.servers.get(name)
         if not server:
-            return True, 'Minecraft server "%s" not defined' % name
+            connection.send_message('Minecraft server "%s" not defined' % name)
+            return
 
         self.logger.info('Sending command to server "%s": "%s"', name, command)
 
         try:
-            server.run_command(command)
+            server.run_command(command, connection=connection)
         except ServerNotRunningException:
             message = 'Minecraft server "%s" not running' % name
 
             self.logger.info(message)
-            return True, message
+            connection.send_message(message)
+        else:
+            connection.send_message('Sent command to Minecraft server "%s": "%s"' % (name, command))
 
-        return True, 'Sent command to Minecraft server "%s": "%s"' % (name, command)
-
-    def handle_socket_data(self, data):
+    def handle_socket_data(self, data, connection):
         """
         Handles socket data from an mcrunner client and returns a two-tuple
         of a bool indicating whether a response is warranted and the message string
@@ -178,15 +179,13 @@ class MCRunner(Daemon):
         parts = data.split(MCRUNNERD_COMMAND_DELIMITER)
 
         if parts[0] == 'status':
-            return self.get_status()
+            self.get_status(connection)
         elif parts[0] == 'start':
-            return self.start_minecraft_server(parts[1])
+            self.start_minecraft_server(parts[1], connection=connection)
         elif parts[0] == 'stop':
-            return self.stop_minecraft_server(parts[1])
+            self.stop_minecraft_server(parts[1], connection=connection)
         elif parts[0] == 'command':
-            return self.send_command(parts[1], parts[2])
-
-        return False, ''
+            self.send_command(parts[1], parts[2], connection)
 
     def on_exit(self):
         """
@@ -214,28 +213,20 @@ class MCRunner(Daemon):
             try:
                 self.logger.debug('Awaiting socket connection')
                 conn, client_address = sock.accept()
+
+                connection = ServerSocketConnection(conn)
+
                 self.logger.debug('Established socket connection')
 
                 try:
-                    data = conn.recv(1000)
+                    data = connection.receive_message()
 
                     self.logger.debug('Handling socket data')
-                    should_respond, message = self.handle_socket_data(data)
+                    self.handle_socket_data(data, connection)
                     self.logger.debug('Socket data handled')
-
-                    if should_respond:
-                        self.logger.debug('Responding')
-
-                        conn.sendall(COMMAND_RESPONSE_STATUSES['MESSAGE'])
-                        conn.sendall(message)
-
-                        self.logger.debug('Responded')
-                    else:
-                        conn.sendall(COMMAND_RESPONSE_STATUSES['DONE'])
                 finally:
-                    conn.close()
-
                     self.logger.debug('Closing socket connection')
+                    connection.close()
             except socket.error:
                 self.logger.exception('Error during socket connection')
             except SystemExit:

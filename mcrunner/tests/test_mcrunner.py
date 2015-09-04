@@ -6,7 +6,7 @@ import unittest
 
 from mcrunner import mcrunner
 from mcrunner.mcrunner import Controller
-from mcrunner.mcrunnerd import COMMAND_RESPONSE_STATUSES, MCRUNNERD_COMMAND_DELIMITER
+from mcrunner.mcrunnerd import MCRUNNERD_COMMAND_DELIMITER
 
 
 TEST_CONFIG = b"""
@@ -49,52 +49,28 @@ class MCRunnerControllerTestCase(unittest.TestCase):
 
         assert controller.sock_file == None
 
-    def test_send_mcrunnerd_package_with_message(self):
+    def test_send_mcrunnerd_package(self):
         controller = Controller(config_file=self.config_file.name)
 
-        mock_sock = mock.MagicMock()
-        controller.socket_client = mock.MagicMock(return_value=mock_sock)
-        mock_sock.recv = mock.MagicMock(side_effect=[
-            COMMAND_RESPONSE_STATUSES['MESSAGE'],
-            'some sample response message'
+        controller.socket_client = mock.MagicMock()
+
+        mock_connection = mock.MagicMock()
+        mock_connection.receive_message = mock.MagicMock(side_effect=[
+            'some sample response message',
+            None  # socket closed
         ])
 
         with mock.patch('mcrunner.mcrunner._output') as mock_print:
-            controller.send_mcrunnerd_package('some_package')
+            with mock.patch('mcrunner.mcrunner.ClientSocketConnection', return_value=mock_connection):
+                controller.send_mcrunnerd_package('some_package')
 
-        assert mock_sock.sendall.call_count == 1
-        assert mock_sock.sendall.call_args[0] == ('some_package',)
-
-        assert mock_sock.recv.call_count == 2
-        assert mock_sock.recv.call_args_list[0][0] == (1,)
-        assert mock_sock.recv.call_args_list[1][0] == (1000,)
+        assert mock_connection.send_message.call_count == 1
+        assert mock_connection.send_message.call_args[0] == ('some_package',)
 
         assert mock_print.call_count == 1
         assert mock_print.call_args[0] == ('some sample response message',)
 
-        assert mock_sock.close.call_count == 1
-
-    def test_send_mcrunnerd_package_with_no_message(self):
-        controller = Controller(config_file=self.config_file.name)
-
-        mock_sock = mock.MagicMock()
-        controller.socket_client = mock.MagicMock(return_value=mock_sock)
-        mock_sock.recv = mock.MagicMock(side_effect=[
-            COMMAND_RESPONSE_STATUSES['DONE']
-        ])
-
-        with mock.patch('mcrunner.mcrunner._output') as mock_print:
-            controller.send_mcrunnerd_package('some_package')
-
-        assert mock_sock.sendall.call_count == 1
-        assert mock_sock.sendall.call_args[0] == ('some_package',)
-
-        assert mock_sock.recv.call_count == 1
-        assert mock_sock.recv.call_args[0] == (1,)
-
-        assert mock_print.call_count == 0
-
-        assert mock_sock.close.call_count == 1
+        assert mock_connection.close.call_count == 1
 
     def test_send_mcrunnerd_package_with_socket_error(self):
         controller = Controller(config_file=self.config_file.name)
@@ -110,22 +86,24 @@ class MCRunnerControllerTestCase(unittest.TestCase):
     def test_send_mcrunnerd_package_with_sendall_error(self):
         controller = Controller(config_file=self.config_file.name)
 
+        controller.socket_client = mock.MagicMock()
+
         socket_error = socket.error('bad send')
 
-        mock_sock = mock.MagicMock()
-        controller.socket_client = mock.MagicMock(return_value=mock_sock)
-        mock_sock.sendall = mock.MagicMock(side_effect=socket_error)
+        mock_connection = mock.MagicMock()
+        mock_connection.send_message = mock.MagicMock(side_effect=socket_error)
 
         with mock.patch('mcrunner.mcrunner._output') as mock_print:
-            controller.send_mcrunnerd_package('some_package')
+            with mock.patch('mcrunner.mcrunner.ClientSocketConnection', return_value=mock_connection):
+                controller.send_mcrunnerd_package('some_package')
 
-        assert mock_sock.sendall.call_count == 1
-        assert mock_sock.sendall.call_args[0] == ('some_package',)
+        assert mock_connection.send_message.call_count == 1
+        assert mock_connection.send_message.call_args[0] == ('some_package',)
 
         assert mock_print.call_count == 1
         assert mock_print.call_args[0] == ('Error sending mcrunnerd package: %s' % str(socket_error),)
 
-        assert mock_sock.close.call_count == 1
+        assert mock_connection.close.call_count == 1
 
     def test_handle_mcrunnerd_action(self):
         controller = Controller(config_file=self.config_file.name)

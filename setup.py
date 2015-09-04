@@ -1,5 +1,6 @@
 from setuptools import find_packages, setup
 from setuptools.command.test import test as TestCommand
+import sys
 
 
 class PyTest(TestCommand):
@@ -18,6 +19,10 @@ class PyTest(TestCommand):
         import pytest
         errno = pytest.main(self.pytest_args)
         raise SystemExit(errno)
+
+install_requires = []
+if sys.version_info < (3,2):
+    install_requires.append('subprocess32==3.2.6')
 
 setup(
     name='mcrunner',
@@ -38,6 +43,7 @@ setup(
         'Programming Language :: Python :: 3.4',
     ],
     keywords='minecraft server runner',
+    install_requires=install_requires,
     packages=find_packages(exclude=['mcrunner']),
     cmdclass = {'test': PyTest},
     tests_require=['mock', 'pytest', 'pytest-cov'],

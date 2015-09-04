@@ -1,9 +1,15 @@
 import mock
-import subprocess
+try:
+    # Python 2.x
+    import subprocess32 as subprocess
+except ImportError:
+    # Python 3.x
+    import subprocess
 import unittest
 
 from mcrunner.server import (
     MinecraftServer,
+    SERVER_STOP_TIMEOUT_SEC,
     ServerNotRunningException,
 )
 
@@ -56,6 +62,26 @@ class MinecraftServerTestCase(unittest.TestCase):
 
         with self.assertRaises(ServerNotRunningException):
             self.server.stop()
+
+    def test_stop_timeout_and_terminate(self):
+        self._create_server()
+
+        self.server.run_command = mock.MagicMock()
+        self.server.pipe = mock.MagicMock()
+        self.server.pipe.wait = mock.MagicMock(side_effect=subprocess.TimeoutExpired('cmd', 1))
+
+        mock_connection = mock.MagicMock()
+
+        self.server.stop(mock_connection)
+
+        assert mock_connection.send_message.call_count == 2
+        assert mock_connection.send_message.call_args_list[0][0] == (
+            'Stopping server name...',
+        )
+        assert mock_connection.send_message.call_args_list[1][0] == (
+            'Server did not stop within %s seconds. Killing...' % SERVER_STOP_TIMEOUT_SEC,
+        )
+        assert self.server.pipe.terminate.call_count == 1
 
     def test_get_status(self):
         self._create_server()

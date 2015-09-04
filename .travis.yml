@@ -5,8 +5,9 @@ python:
   - "3.3"
   - "3.4"
 install:
+  - pip install .
   - pip install -r requirements-dev.txt
   - pip install coveralls
-script: coverage run setup.py test
+script: coverage run --source mcrunner setup.py test
 after_success:
   coveralls

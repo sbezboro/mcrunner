@@ -1,4 +1,12 @@
-import subprocess
+try:
+    # Python 2.x
+    import subprocess32 as subprocess
+except ImportError:
+    # Python 3.x
+    import subprocess
+
+
+SERVER_STOP_TIMEOUT_SEC = 60
 
 
 class ServerStartException(Exception):
@@ -30,7 +38,16 @@ class MinecraftServer(object):
         self.jar = jar
         self.opts = opts
 
-    def start(self):
+    def _start_jar(self, args):
+        self.pipe = subprocess.Popen(
+            args,
+            cwd=self.path,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
+    def start(self, connection=None):
         """
         Start the Minecraft server jar.
         """
@@ -42,22 +59,34 @@ class MinecraftServer(object):
 
         args.extend(self.opts.split())
 
-        self.pipe = subprocess.Popen(
-            args,
-            cwd=self.path,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+        if connection:
+            connection.send_message('Starting server %s...' % self.name)
 
-    def stop(self):
+        self._start_jar(args)
+
+        if connection:
+            connection.send_message('Server %s started.' % self.name)
+
+    def stop(self, connection=None):
         """
         Attempt to stop the running jar.
         """
         if not self.pipe:
             raise ServerNotRunningException
 
+        if connection:
+            connection.send_message('Stopping server %s...' % self.name)
+
         self.run_command('stop')
+
+        if connection:
+            try:
+                self.pipe.wait(timeout=SERVER_STOP_TIMEOUT_SEC)
+            except subprocess.TimeoutExpired:
+                connection.send_message('Server did not stop within %s seconds. Killing...' % SERVER_STOP_TIMEOUT_SEC)
+                self.pipe.terminate()
+            else:
+                connection.send_message('Server %s stopped.' % self.name)
 
     def get_status(self):
         """
@@ -71,7 +100,7 @@ class MinecraftServer(object):
 
         return 'Running'
 
-    def run_command(self, command):
+    def run_command(self, command, connection=None):
         """
         Attempt to run a command on the server.
         """

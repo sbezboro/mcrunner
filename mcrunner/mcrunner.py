@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
 
 try:
     # Python 2.x
@@ -11,7 +11,8 @@ except ImportError:
 import socket
 import sys
 
-from mcrunner.mcrunnerd import COMMAND_RESPONSE_STATUSES, MCRUNNERD_COMMAND_DELIMITER
+from mcrunner.connection import ClientSocketConnection
+from mcrunner.mcrunnerd import MCRUNNERD_COMMAND_DELIMITER
 
 
 class Controller(object):
@@ -60,19 +61,22 @@ class Controller(object):
             _output('Could not connect to socket - is mcrunnerd running?')
             return
 
+        connection = ClientSocketConnection(sock)
+
         try:
-            sock.sendall(package)
+            connection.send_message(package)
         except Exception as e:
             _output('Error sending mcrunnerd package: %s' % e)
         else:
-            # get command status
-            data = sock.recv(1)
+            while True:
+                data = connection.receive_message()
+                if not data:
+                    break
 
-            if data == COMMAND_RESPONSE_STATUSES['MESSAGE']:
-                data = sock.recv(1000)
                 _output(data)
+
         finally:
-            sock.close()
+            connection.close()
 
     def handle_mcrunnerd_action(self, action):
         """
