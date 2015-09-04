@@ -9,14 +9,14 @@ class BaseSocketConnection(object):
     def send_message(self, message):
         length = len(message)
 
-        self.sock_conn.sendall(struct.pack('>I', length) + message)
+        self.sock_conn.sendall(struct.pack('>I', length) + message.encode('utf8'))
 
     def receive_message(self):
         raw_length = self._receive_data(4)
         if not raw_length:
             return None
 
-        length = struct.unpack('>I', raw_length)[0]
+        length = struct.unpack('>I', raw_length.encode('utf8'))[0]
         return self._receive_data(length)
 
     def close(self):

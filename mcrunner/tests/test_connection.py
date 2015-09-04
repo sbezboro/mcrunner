@@ -1,4 +1,3 @@
-import struct
 import unittest
 import mock
 
@@ -14,8 +13,7 @@ class BaseSocketConnectionTestCase(unittest.TestCase):
         connection.send_message('some message')
 
         assert mock_sock.sendall.call_count == 1
-        assert mock_sock.sendall.call_args[0] == ('\x00\x00\x00\x0csome message',)
-        assert mock_sock.sendall.call_args[0] == (struct.pack('>I', len('some message')) + 'some message',)
+        assert mock_sock.sendall.call_args[0] == (b'\x00\x00\x00\x0csome message',)
 
     def test_receive_message(self):
         mock_sock = mock.MagicMock()
