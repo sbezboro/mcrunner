@@ -26,7 +26,7 @@ if sys.version_info < (3,2):
 
 setup(
     name='mcrunner',
-    version='0.1.0',
+    version='0.1.1',
     description='Minecraft server monitoring and control system for UNIX',
     url='https://github.com/sbezboro/mcrunner',
     author='Sergei Bezborodko',
