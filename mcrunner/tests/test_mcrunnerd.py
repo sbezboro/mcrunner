@@ -328,6 +328,27 @@ class MCRunnerTestCase(unittest.TestCase):
         assert self.mock_connection.send_message.call_count == 1
         assert self.mock_connection.send_message.call_args[0] == ('Could not start server! stderr:\n\nexc',)
 
+    def test_run_with_restart_server(self):
+        self._set_up_daemon_with_recv([
+            'restart{}survival'.format(MCRUNNERD_COMMAND_DELIMITER),
+            SystemExit
+        ])
+
+        with mock.patch.object(MinecraftServer, 'pipe'):
+            with mock.patch.object(MinecraftServer, 'run_command') as mock_run_command:
+                with mock.patch.object(MinecraftServer, '_start_jar') as mock_start:
+                    with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
+                        self.daemon.run()
+
+        assert mock_start.call_count == 1
+        assert mock_run_command.call_count == 1
+
+        assert self.mock_connection.send_message.call_count == 4
+        assert self.mock_connection.send_message.call_args_list[0][0] == ('Stopping server survival...',)
+        assert self.mock_connection.send_message.call_args_list[1][0] == ('Server survival stopped.',)
+        assert self.mock_connection.send_message.call_args_list[2][0] == ('Starting server survival...',)
+        assert self.mock_connection.send_message.call_args_list[3][0] == ('Server survival started.',)
+
     def test_run_with_stop_server(self):
         self._set_up_daemon_with_recv([
             'stop{}survival'.format(MCRUNNERD_COMMAND_DELIMITER),

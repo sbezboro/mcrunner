@@ -117,7 +117,7 @@ def main():
 
     if sys.argv[1] == 'status':
         controller.handle_mcrunnerd_action(sys.argv[1])
-    elif sys.argv[1] in ('start', 'stop'):
+    elif sys.argv[1] in ('start', 'stop', 'restart'):
         if len(sys.argv) == 2:
             _output('Usage: %s %s <server_name>' % (sys.argv[0], sys.argv[1]))
             sys.exit(2)

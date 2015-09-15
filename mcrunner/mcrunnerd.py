@@ -184,6 +184,9 @@ class MCRunner(Daemon):
             self.start_minecraft_server(parts[1], connection=connection)
         elif parts[0] == 'stop':
             self.stop_minecraft_server(parts[1], connection=connection)
+        elif parts[0] == 'restart':
+            self.stop_minecraft_server(parts[1], connection=connection)
+            self.start_minecraft_server(parts[1], connection=connection)
         elif parts[0] == 'command':
             self.send_command(parts[1], parts[2], connection)
 
