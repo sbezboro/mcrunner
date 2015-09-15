@@ -34,10 +34,10 @@ class MinecraftServerTestCase(unittest.TestCase):
         assert subprocess.Popen.call_count == 1
         assert subprocess.Popen.call_args[0] == ([
             '/usr/bin/java',
-            '-jar',
-            'path/to/jar/craftbukkit.jar',
             '-arg_1',
-            '-arg_2'
+            '-arg_2',
+            '-jar',
+            'path/to/jar/craftbukkit.jar'
         ],)
         assert subprocess.Popen.call_args[1] == dict(
             cwd='path/to/jar',

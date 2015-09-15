@@ -51,13 +51,12 @@ class MinecraftServer(object):
         """
         Start the Minecraft server jar.
         """
-        args = [
-            '/usr/bin/java',
+        args = ['/usr/bin/java']
+        args.extend(self.opts.split())
+        args.extend([
             '-jar',
             '%s/%s' % (self.path, self.jar)
-        ]
-
-        args.extend(self.opts.split())
+        ])
 
         if connection:
             connection.send_message('Starting server %s...' % self.name)

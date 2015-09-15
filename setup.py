@@ -43,11 +43,11 @@ setup(
     ],
     keywords='minecraft server runner',
     install_requires=install_requires,
-    packages=find_packages(exclude=['mcrunner']),
+    packages=find_packages(),
     cmdclass = {'test': PyTest},
     tests_require=['mock', 'pytest', 'pytest-cov'],
     test_suite='py.test',
-    data_files=[('/etc/mcrunner', ['config/mcrunner.conf'])],
+    data_files=[('/etc/mcrunner', ['config/mcrunner.sample.conf'])],
     entry_points={
         'console_scripts': [
             'mcrunnerd=mcrunner.mcrunnerd:main',
