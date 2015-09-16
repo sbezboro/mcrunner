@@ -17,7 +17,13 @@ import sys
 
 from mcrunner.connection import ServerSocketConnection
 from mcrunner.daemon import Daemon
-from mcrunner.server import MinecraftServer, ServerNotRunningException, ServerStartException
+from mcrunner.exceptions import (
+    ConfigException,
+    MCRunnerException,
+    ServerNotRunningException,
+    ServerStartException,
+)
+from mcrunner.server import MinecraftServer
 
 
 MCRUNNERD_COMMAND_DELIMITER = '|+|'
@@ -41,6 +47,9 @@ class MCRunner(Daemon):
     def __init__(self, *args, **kwargs):
         self.config_file = kwargs.pop('config_file', '/etc/mcrunner/mcrunner.conf')
         self.pid_file = kwargs.pop('pid_file', '/tmp/mcrunner.pid')
+
+        if not os.path.exists(self.config_file):
+            raise ConfigException('Config file missing: %s' % self.config_file)
 
         super(MCRunner, self).__init__(self.pid_file, *args, **kwargs)
 
@@ -122,7 +131,7 @@ class MCRunner(Daemon):
         try:
             server.start(connection=connection)
         except ServerStartException as e:
-            message = 'Could not start server! stderr:\n\n%s' % str(e)
+            message = 'Could not start server! Reason: %s' % str(e)
 
             self.logger.info(message)
             if connection:
@@ -243,8 +252,16 @@ def _output(string):
     sys.stdout.write('%s\n' % string)
 
 
+def _error(string):
+    sys.stderr.write('%s\n' % string)
+
+
 def main():
-    daemon = MCRunner()
+    try:
+        daemon = MCRunner()
+    except MCRunnerException as e:
+        _error(str(e))
+        sys.exit(2)
 
     if len(sys.argv) == 1:
         _output("Usage: %s start|stop|restart" % sys.argv[0])

@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 try:
     # Python 2.x
     import subprocess32 as subprocess
@@ -6,15 +8,10 @@ except ImportError:
     import subprocess
 
 
+from mcrunner.exceptions import ServerNotRunningException, ServerStartException
+
+
 SERVER_STOP_TIMEOUT_SEC = 60
-
-
-class ServerStartException(Exception):
-    pass
-
-
-class ServerNotRunningException(Exception):
-    pass
 
 
 class MinecraftServer(object):
@@ -61,7 +58,10 @@ class MinecraftServer(object):
         if connection:
             connection.send_message('Starting server %s...' % self.name)
 
-        self._start_jar(args)
+        try:
+            self._start_jar(args)
+        except OSError as e:
+            raise ServerStartException(e)
 
         if connection:
             connection.send_message('Server %s started.' % self.name)

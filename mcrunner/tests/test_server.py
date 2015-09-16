@@ -7,6 +7,7 @@ except ImportError:
     import subprocess
 import unittest
 
+from mcrunner.exceptions import ServerStartException
 from mcrunner.server import (
     MinecraftServer,
     SERVER_STOP_TIMEOUT_SEC,
@@ -45,6 +46,18 @@ class MinecraftServerTestCase(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
+
+    def test_start_os_error(self):
+        self._create_server()
+
+        error = OSError('File not found')
+
+        subprocess.Popen = mock.MagicMock(side_effect=error)
+
+        with self.assertRaises(ServerStartException) as exc:
+            self.server.start()
+
+        assert str(exc.exception) == 'File not found'
 
     def test_stop(self):
         self._create_server()

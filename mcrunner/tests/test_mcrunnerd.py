@@ -7,15 +7,9 @@ import tempfile
 import unittest
 
 from mcrunner import mcrunnerd
-from mcrunner.mcrunnerd import (
-    MCRunner,
-    MCRUNNERD_COMMAND_DELIMITER
-)
-from mcrunner.server import (
-    MinecraftServer,
-    ServerNotRunningException,
-    ServerStartException
-)
+from mcrunner.exceptions import ServerNotRunningException, ServerStartException
+from mcrunner.mcrunnerd import MCRunner, MCRUNNERD_COMMAND_DELIMITER
+from mcrunner.server import MinecraftServer
 
 
 TEST_CONFIG = b"""
@@ -74,6 +68,9 @@ class MCRunnerTestCase(unittest.TestCase):
 
         self.mock_connection = mock.MagicMock()
         self.mock_connection.receive_message = mock.MagicMock(side_effect=recv_list)
+
+    def _generate_mcrunnerd_patckage(self, *args):
+        return MCRUNNERD_COMMAND_DELIMITER.join(args)
 
     def test_load_config(self):
         daemon = MCRunner(
@@ -287,7 +284,7 @@ class MCRunnerTestCase(unittest.TestCase):
 
     def test_run_with_start_server(self):
         self._set_up_daemon_with_recv([
-            'start{}survival'.format(MCRUNNERD_COMMAND_DELIMITER),
+            self._generate_mcrunnerd_patckage('start', 'survival'),
             SystemExit
         ])
 
@@ -303,7 +300,7 @@ class MCRunnerTestCase(unittest.TestCase):
 
     def test_run_with_start_invalid_server(self):
         self._set_up_daemon_with_recv([
-            'start{}bad_server_name'.format(MCRUNNERD_COMMAND_DELIMITER),
+            self._generate_mcrunnerd_patckage('start', 'bad_server_name'),
             SystemExit
         ])
 
@@ -315,22 +312,22 @@ class MCRunnerTestCase(unittest.TestCase):
 
     def test_run_with_start_server_running(self):
         self._set_up_daemon_with_recv([
-            'start{}survival'.format(MCRUNNERD_COMMAND_DELIMITER),
+            self._generate_mcrunnerd_patckage('start', 'survival'),
             SystemExit
         ])
 
-        with mock.patch.object(MinecraftServer, 'start', side_effect=ServerStartException('exc')) as mock_start:
+        with mock.patch.object(MinecraftServer, 'start', side_effect=ServerStartException('reason')) as mock_start:
             with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
                 self.daemon.run()
 
         assert mock_start.call_count == 1
 
         assert self.mock_connection.send_message.call_count == 1
-        assert self.mock_connection.send_message.call_args[0] == ('Could not start server! stderr:\n\nexc',)
+        assert self.mock_connection.send_message.call_args[0] == ('Could not start server! Reason: reason',)
 
     def test_run_with_restart_server(self):
         self._set_up_daemon_with_recv([
-            'restart{}survival'.format(MCRUNNERD_COMMAND_DELIMITER),
+            self._generate_mcrunnerd_patckage('restart', 'survival'),
             SystemExit
         ])
 
@@ -351,7 +348,7 @@ class MCRunnerTestCase(unittest.TestCase):
 
     def test_run_with_stop_server(self):
         self._set_up_daemon_with_recv([
-            'stop{}survival'.format(MCRUNNERD_COMMAND_DELIMITER),
+            self._generate_mcrunnerd_patckage('stop', 'survival'),
             SystemExit
         ])
 
@@ -365,7 +362,7 @@ class MCRunnerTestCase(unittest.TestCase):
 
     def test_run_with_stop_invalid_server(self):
         self._set_up_daemon_with_recv([
-            'stop{}bad_server_name'.format(MCRUNNERD_COMMAND_DELIMITER),
+            self._generate_mcrunnerd_patckage('stop', 'bad_server_name'),
             SystemExit
         ])
 
@@ -377,7 +374,7 @@ class MCRunnerTestCase(unittest.TestCase):
 
     def test_run_with_stop_server_not_running(self):
         self._set_up_daemon_with_recv([
-            'stop{}survival'.format(MCRUNNERD_COMMAND_DELIMITER),
+            self._generate_mcrunnerd_patckage('stop', 'survival'),
             SystemExit
         ])
 
@@ -392,7 +389,7 @@ class MCRunnerTestCase(unittest.TestCase):
 
     def test_run_with_command(self):
         self._set_up_daemon_with_recv([
-            'command{delim}survival{delim}say test'.format(delim=MCRUNNERD_COMMAND_DELIMITER),
+            self._generate_mcrunnerd_patckage('command', 'survival', 'say test'),
             SystemExit
         ])
 
@@ -417,7 +414,7 @@ class MCRunnerTestCase(unittest.TestCase):
 
     def test_run_with_command_not_running(self):
         self._set_up_daemon_with_recv([
-            'command{delim}survival{delim}say test'.format(delim=MCRUNNERD_COMMAND_DELIMITER),
+            self._generate_mcrunnerd_patckage('command', 'survival', 'say test'),
             SystemExit
         ])
 
@@ -441,7 +438,25 @@ class MCRunnerMainTestCase(unittest.TestCase):
         assert mock_write.call_count == 1
         assert mock_write.call_args[0] == ('test\n',)
 
+    def test_error(self):
+        with mock.patch.object(sys.stderr, 'write') as mock_write:
+            mcrunnerd._error('test')
+
+        assert mock_write.call_count == 1
+        assert mock_write.call_args[0] == ('test\n',)
+
     @mock.patch.object(sys, 'argv', ['mcrunnerd'])
+    @mock.patch.object(os.path, 'exists', lambda path: False)
+    def test_no_config(self):
+        with mock.patch('mcrunner.mcrunnerd._error') as mock_output:
+            with self.assertRaises(SystemExit):
+                mcrunnerd.main()
+
+        assert mock_output.call_count == 1
+        assert mock_output.call_args[0] == ('Config file missing: /etc/mcrunner/mcrunner.conf',)
+
+    @mock.patch.object(sys, 'argv', ['mcrunnerd'])
+    @mock.patch.object(os.path, 'exists', lambda path: True)
     def test_too_few_args(self):
         with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
             with self.assertRaises(SystemExit):
@@ -451,6 +466,7 @@ class MCRunnerMainTestCase(unittest.TestCase):
         assert mock_output.call_args[0] == ('Usage: mcrunnerd start|stop|restart',)
 
     @mock.patch.object(sys, 'argv', ['mcrunnerd', 'blah', 'blah'])
+    @mock.patch.object(os.path, 'exists', lambda path: True)
     def test_too_many_args(self):
         with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
             with self.assertRaises(SystemExit):
@@ -487,6 +503,7 @@ class MCRunnerMainTestCase(unittest.TestCase):
         assert mock_daemon.restart.call_count == 1
 
     @mock.patch.object(sys, 'argv', ['mcrunnerd', 'bad_command'])
+    @mock.patch.object(os.path, 'exists', lambda path: True)
     def test_bad_command(self):
         with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
             with self.assertRaises(SystemExit):
