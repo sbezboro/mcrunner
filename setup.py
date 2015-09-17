@@ -1,6 +1,16 @@
+import re
 from setuptools import find_packages, setup
 from setuptools.command.test import test as TestCommand
 import sys
+
+
+version = ''
+with open('mcrunner/__init__.py', 'r') as fd:
+    version = re.search(
+        r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
+        fd.read(),
+        re.MULTILINE
+    ).group(1)
 
 
 class PyTest(TestCommand):
@@ -26,7 +36,7 @@ if sys.version_info < (3,2):
 
 setup(
     name='mcrunner',
-    version='0.1.3-dev0',
+    version=version,
     description='Minecraft server monitoring and control system for UNIX',
     url='https://github.com/sbezboro/mcrunner',
     author='Sergei Bezborodko',
