@@ -49,19 +49,25 @@ class MCRunnerTestCase(unittest.TestCase):
         self.pid_file.close()
         self.sock_file.close()
 
+    def _set_up_daemon(self):
+        self.logger = mock.MagicMock()
+
+        with mock.patch.object(MCRunner, 'create_logger', return_value=self.logger):
+            self.daemon = MCRunner(
+                config_file=self.config_file.name,
+                pid_file=self.pid_file.name
+            )
+
+        return self.daemon
+
     def _set_up_daemon_with_recv(self, recv_list):
-        self.daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
+        self._set_up_daemon()
 
         mock_sock = mock.MagicMock()
         mock_conn = mock.MagicMock()
         mock_sock.accept = mock.MagicMock(return_value=(
             mock_conn, 'address'
         ))
-
-        self.daemon.logger = mock.MagicMock()
 
         self.daemon.socket_server = mock.MagicMock(return_value=mock_sock)
 
@@ -72,12 +78,7 @@ class MCRunnerTestCase(unittest.TestCase):
         return MCRUNNERD_COMMAND_DELIMITER.join(args)
 
     def test_load_config(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
+        daemon = self._set_up_daemon()
 
         assert daemon.log_file == '/var/log/mcrunner/mcrunnerd.log'
         assert daemon.sock_file == '/tmp/mcrunner.sock'
@@ -98,10 +99,7 @@ class MCRunnerTestCase(unittest.TestCase):
         assert creative.opts == '-Xms8G -Xmx16G'
 
     def test_socket_server(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
+        daemon = self._set_up_daemon()
 
         daemon.sock_file = self.sock_file.name
 
@@ -121,10 +119,7 @@ class MCRunnerTestCase(unittest.TestCase):
         assert mock_sock.listen.call_args[0] == (1,)
 
     def test_socket_server_os_error(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
+        daemon = self._set_up_daemon()
 
         daemon.sock_file = self.sock_file.name
 
@@ -144,12 +139,7 @@ class MCRunnerTestCase(unittest.TestCase):
         assert mock_sock.listen.call_args[0] == (1,)
 
     def test_create_logger(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
+        daemon = self._set_up_daemon()
 
         with tempfile.NamedTemporaryFile() as f:
             daemon.log_file = f.name
@@ -158,12 +148,7 @@ class MCRunnerTestCase(unittest.TestCase):
         assert isinstance(logger, logging.getLoggerClass())
 
     def test_get_status(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
+        daemon = self._set_up_daemon()
 
         daemon.servers['survival'].get_status = mock.MagicMock(return_value='some status')
         daemon.servers['creative'].get_status = mock.MagicMock(return_value='some other status')
@@ -178,58 +163,28 @@ class MCRunnerTestCase(unittest.TestCase):
         assert 'creative: some other status' in status
 
     def test_start_minecraft_server_exception(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
-        daemon.logger = mock.MagicMock()
+        daemon = self._set_up_daemon()
 
         with mock.patch.object(MinecraftServer, 'start', side_effect=ServerStartException):
             daemon.start_minecraft_server('survival')
 
     def test_start_minecraft_server_invalid(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
-        daemon.logger = mock.MagicMock()
+        daemon = self._set_up_daemon()
 
         daemon.start_minecraft_server('bad_server')
 
     def test_stop_minecraft_server(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
-        daemon.logger = mock.MagicMock()
+        daemon = self._set_up_daemon()
 
         daemon.stop_minecraft_server('survival')
 
     def test_stop_minecraft_server_invalid(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
-        daemon.logger = mock.MagicMock()
+        daemon = self._set_up_daemon()
 
         daemon.stop_minecraft_server('bad_server')
 
     def test_on_exit(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
-        daemon.logger = mock.MagicMock()
+        daemon = self._set_up_daemon()
 
         daemon.servers['survival'].stop = mock.MagicMock()
         daemon.servers['creative'].stop = mock.MagicMock()
@@ -240,13 +195,7 @@ class MCRunnerTestCase(unittest.TestCase):
         assert daemon.servers['creative'].stop.call_count == 1
 
     def test_set_uid(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
-        daemon.logger = mock.MagicMock()
+        daemon = self._set_up_daemon()
 
         daemon.user = 'test_user'
 
@@ -259,13 +208,7 @@ class MCRunnerTestCase(unittest.TestCase):
         assert mock_setuid.call_args[0] == (1001,)
 
     def test_set_uid_self(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
-        daemon.logger = mock.MagicMock()
+        daemon = self._set_up_daemon()
 
         daemon.user = 'test_user'
 
@@ -277,13 +220,7 @@ class MCRunnerTestCase(unittest.TestCase):
         assert mock_setuid.call_count == 0
 
     def test_set_uid_user_not_found(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
-        daemon.logger = mock.MagicMock()
+        daemon = self._set_up_daemon()
 
         daemon.user = 'test_user'
 
@@ -292,13 +229,7 @@ class MCRunnerTestCase(unittest.TestCase):
                 daemon.set_uid()
 
     def test_set_uid_user_not_root(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
-        daemon.logger = mock.MagicMock()
+        daemon = self._set_up_daemon()
 
         daemon.user = 'test_user'
 
@@ -308,13 +239,7 @@ class MCRunnerTestCase(unittest.TestCase):
                     daemon.set_uid()
 
     def test_set_uid_failure(self):
-        daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
-
-        daemon.load_config()
-        daemon.logger = mock.MagicMock()
+        daemon = self._set_up_daemon()
 
         daemon.user = 'test_user'
 
@@ -542,9 +467,10 @@ class MCRunnerMainTestCase(unittest.TestCase):
     @mock.patch.object(sys, 'argv', ['mcrunnerd'])
     @mock.patch.object(os.path, 'exists', lambda path: True)
     def test_too_few_args(self):
-        with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
-            with self.assertRaises(SystemExit):
-                mcrunnerd.main()
+        with mock.patch('mcrunner.mcrunnerd.MCRunner'):
+            with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
+                with self.assertRaises(SystemExit):
+                    mcrunnerd.main()
 
         assert mock_output.call_count == 1
         assert mock_output.call_args[0] == ('Usage: mcrunnerd start|stop|restart',)
@@ -552,9 +478,10 @@ class MCRunnerMainTestCase(unittest.TestCase):
     @mock.patch.object(sys, 'argv', ['mcrunnerd', 'blah', 'blah'])
     @mock.patch.object(os.path, 'exists', lambda path: True)
     def test_too_many_args(self):
-        with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
-            with self.assertRaises(SystemExit):
-                mcrunnerd.main()
+        with mock.patch('mcrunner.mcrunnerd.MCRunner'):
+            with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
+                with self.assertRaises(SystemExit):
+                    mcrunnerd.main()
 
         assert mock_output.call_count == 1
         assert mock_output.call_args[0] == ('Usage: mcrunnerd start|stop|restart',)
@@ -589,9 +516,10 @@ class MCRunnerMainTestCase(unittest.TestCase):
     @mock.patch.object(sys, 'argv', ['mcrunnerd', 'bad_command'])
     @mock.patch.object(os.path, 'exists', lambda path: True)
     def test_bad_command(self):
-        with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
-            with self.assertRaises(SystemExit):
-                mcrunnerd.main()
+        with mock.patch('mcrunner.mcrunnerd.MCRunner'):
+            with mock.patch('mcrunner.mcrunnerd._output') as mock_output:
+                with self.assertRaises(SystemExit):
+                    mcrunnerd.main()
 
         assert mock_output.call_count == 1
         assert mock_output.call_args[0] == ('Unknown command: bad_command',)
