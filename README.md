@@ -7,9 +7,6 @@
 MCRunner is a client/server system that allows the control and monitoring of multiple Minecraft server
 instances on a single machine.
 
-## Installation
-    $ pip install mcrunner
-
 ## Documentation
 
 Documentation is available at [http://mcrunner.readthedocs.org/](http://mcrunner.readthedocs.org/)
