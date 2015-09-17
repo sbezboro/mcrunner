@@ -12,6 +12,7 @@ import atexit
 import logging
 import logging.handlers
 import os
+import pwd
 import socket
 import sys
 
@@ -39,6 +40,12 @@ class MCRunner(Daemon):
     socket for primitive communication to start and stop Minecraft
     """
 
+    CONFIG_DEFAULTS = {
+        'user': None
+    }
+
+    log_file = None
+    user = None
     sock_file = None
     logger = None
 
@@ -51,6 +58,12 @@ class MCRunner(Daemon):
         if not os.path.exists(self.config_file):
             raise ConfigException('Config file missing: %s' % self.config_file)
 
+        self.load_config()
+
+        self.logger = self.create_logger()
+
+        self.set_uid()
+
         super(MCRunner, self).__init__(self.pid_file, *args, **kwargs)
 
     def load_config(self):
@@ -59,12 +72,13 @@ class MCRunner(Daemon):
         """
         self.servers = {}
 
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(defaults=self.CONFIG_DEFAULTS)
         config.read(self.config_file)
 
         for section in config.sections():
             if section == 'mcrunnerd':
                 self.log_file = config.get(section, 'logfile')
+                self.user = config.get(section, 'user')
             elif section == 'mcrunner':
                 self.sock_file = config.get(section, 'url')
             elif section.startswith('server:'):
@@ -133,7 +147,7 @@ class MCRunner(Daemon):
         except ServerStartException as e:
             message = 'Could not start server! Reason: %s' % str(e)
 
-            self.logger.info(message)
+            self.logger.warn(message)
             if connection:
                 connection.send_message(message)
 
@@ -154,7 +168,7 @@ class MCRunner(Daemon):
         except ServerNotRunningException:
             message = 'Minecraft server "%s" not running' % name
 
-            self.logger.info(message)
+            self.logger.warn(message)
             if connection:
                 connection.send_message(message)
 
@@ -174,7 +188,7 @@ class MCRunner(Daemon):
         except ServerNotRunningException:
             message = 'Minecraft server "%s" not running' % name
 
-            self.logger.info(message)
+            self.logger.warn(message)
             connection.send_message(message)
         else:
             connection.send_message('Sent command to Minecraft server "%s": "%s"' % (name, command))
@@ -206,6 +220,37 @@ class MCRunner(Daemon):
         for server_name in self.servers:
             self.stop_minecraft_server(server_name)
 
+    def set_uid(self):
+        """
+        Set uid for daemon.
+        """
+        if not self.user:
+            return
+
+        try:
+            pwnam = pwd.getpwnam(self.user)
+        except KeyError:
+            self.logger.error('User not found for setuid: %s' % self.user)
+            sys.exit(1)
+
+        uid = pwnam.pw_uid
+
+        current_uid = os.getuid()
+
+        if current_uid == uid:
+            # Already running as the correct user
+            return
+
+        if current_uid != 0:
+            self.logger.error('Can\'t setuid if not running as root')
+            sys.exit(1)
+
+        try:
+            os.setuid(uid)
+        except OSError:
+            self.logger.error('Could not switch to user %s' % self.user)
+            sys.exit(1)
+
     def run(self):
         """
         Main daemon runloop function. Handles receiving and responding to MCRunner
@@ -213,13 +258,9 @@ class MCRunner(Daemon):
         """
         atexit.register(self.on_exit)
 
-        self.load_config()
-
-        self.logger = self.create_logger()
-
-        self.logger.info('Starting mcrunnerd')
+        self.logger.info('Starting mcrunnerd...')
         sock = self.socket_server()
-        self.logger.info('mcrunnerd started')
+        self.logger.info('mcrunnerd started.')
 
         while True:
             try:
@@ -242,10 +283,10 @@ class MCRunner(Daemon):
             except socket.error:
                 self.logger.exception('Error during socket connection')
             except SystemExit:
-                self.logger.info('Stopping mcrunnerd')
+                self.logger.info('Stopping mcrunnerd...')
                 break
 
-        self.logger.info('mcrunnerd stopped')
+        self.logger.info('mcrunnerd stopped.')
 
 
 def _output(string):

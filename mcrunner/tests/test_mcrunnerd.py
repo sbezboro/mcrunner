@@ -61,8 +61,7 @@ class MCRunnerTestCase(unittest.TestCase):
             mock_conn, 'address'
         ))
 
-        self.mock_logger = mock.MagicMock()
-        self.daemon.create_logger = mock.MagicMock(return_value=self.mock_logger)
+        self.daemon.logger = mock.MagicMock()
 
         self.daemon.socket_server = mock.MagicMock(return_value=mock_sock)
 
@@ -240,6 +239,91 @@ class MCRunnerTestCase(unittest.TestCase):
         assert daemon.servers['survival'].stop.call_count == 1
         assert daemon.servers['creative'].stop.call_count == 1
 
+    def test_set_uid(self):
+        daemon = MCRunner(
+            config_file=self.config_file.name,
+            pid_file=self.pid_file.name
+        )
+
+        daemon.load_config()
+        daemon.logger = mock.MagicMock()
+
+        daemon.user = 'test_user'
+
+        with mock.patch('pwd.getpwnam', return_value=mock.MagicMock(pw_uid=1001)):
+            with mock.patch('os.getuid', return_value=0):
+                with mock.patch('os.setuid') as mock_setuid:
+                    daemon.set_uid()
+
+        assert mock_setuid.call_count == 1
+        assert mock_setuid.call_args[0] == (1001,)
+
+    def test_set_uid_self(self):
+        daemon = MCRunner(
+            config_file=self.config_file.name,
+            pid_file=self.pid_file.name
+        )
+
+        daemon.load_config()
+        daemon.logger = mock.MagicMock()
+
+        daemon.user = 'test_user'
+
+        with mock.patch('pwd.getpwnam', return_value=mock.MagicMock(pw_uid=1001)):
+            with mock.patch('os.getuid', return_value=1001):
+                with mock.patch('os.setuid') as mock_setuid:
+                    daemon.set_uid()
+
+        assert mock_setuid.call_count == 0
+
+    def test_set_uid_user_not_found(self):
+        daemon = MCRunner(
+            config_file=self.config_file.name,
+            pid_file=self.pid_file.name
+        )
+
+        daemon.load_config()
+        daemon.logger = mock.MagicMock()
+
+        daemon.user = 'test_user'
+
+        with mock.patch('pwd.getpwnam', side_effect=KeyError):
+            with self.assertRaises(SystemExit):
+                daemon.set_uid()
+
+    def test_set_uid_user_not_root(self):
+        daemon = MCRunner(
+            config_file=self.config_file.name,
+            pid_file=self.pid_file.name
+        )
+
+        daemon.load_config()
+        daemon.logger = mock.MagicMock()
+
+        daemon.user = 'test_user'
+
+        with mock.patch('pwd.getpwnam', return_value=mock.MagicMock(pw_uid=1001)):
+            with mock.patch('os.getuid', return_value=1002):
+                with self.assertRaises(SystemExit):
+                    daemon.set_uid()
+
+    def test_set_uid_failure(self):
+        daemon = MCRunner(
+            config_file=self.config_file.name,
+            pid_file=self.pid_file.name
+        )
+
+        daemon.load_config()
+        daemon.logger = mock.MagicMock()
+
+        daemon.user = 'test_user'
+
+        with mock.patch('pwd.getpwnam', return_value=mock.MagicMock(pw_uid=1001)):
+            with mock.patch('os.getuid', return_value=0):
+                with mock.patch('os.setuid', side_effect=OSError):
+                    with self.assertRaises(SystemExit):
+                        daemon.set_uid()
+
     def test_run_no_message(self):
         self._set_up_daemon_with_recv([
             'some data',
@@ -261,8 +345,8 @@ class MCRunnerTestCase(unittest.TestCase):
         with mock.patch('mcrunner.mcrunnerd.ServerSocketConnection', return_value=self.mock_connection):
             self.daemon.run()
 
-        assert self.mock_logger.exception.call_count == 1
-        assert self.mock_logger.exception.call_args[0] == ('Error during socket connection',)
+        assert self.daemon.logger.exception.call_count == 1
+        assert self.daemon.logger.exception.call_args[0] == ('Error during socket connection',)
 
     def test_run_status(self):
         self._set_up_daemon_with_recv([
