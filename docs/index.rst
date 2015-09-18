@@ -12,6 +12,7 @@ Contents:
    installation
    running
    configuration
+   mcrunner
 
 
 License
