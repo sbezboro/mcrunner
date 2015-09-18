@@ -11,6 +11,7 @@ Contents:
 
    installation
    running
+   configuration
 
 
 License
