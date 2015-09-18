@@ -12,11 +12,18 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
 import os
+import re
 import shlex
+import sys
 
-from mcrunner import __version__
+mcrunner_version = ''
+with open('../mcrunner/__init__.py', 'r') as fd:
+    mcrunner_version = re.search(
+        r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
+        fd.read(),
+        re.MULTILINE
+    ).group(1)
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -59,7 +66,7 @@ author = u'Sergei Bezborodko'
 # built documents.
 #
 # The short X.Y version.
-version = __version__
+version = mcrunner_version
 # The full version, including alpha/beta/rc tags.
 release = version
 
