@@ -42,7 +42,9 @@ This section contains properties used by the client process.
 ``[server:<name>]`` section
 ---------------------------
 
-This section contains properties for a Minecraft server that MCRunner should manage. This section can appear multiple times as long as the server names are unique. The name is used when using the `mcrunner` command line.
+This section contains properties for a Minecraft server that MCRunner should manage.
+This section can appear multiple times as long as the server names are unique.
+The name is used when interfacing with the `mcrunner` command line.
 
 ``path``
 
