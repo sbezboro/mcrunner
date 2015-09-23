@@ -6,7 +6,7 @@ By default `mcrunnerd` and `mcrunner` look at /etc/mcrunner/mcrunner.conf for co
 The configuration file contains three different sections, ``[mcrunnerd]``, ``[mcrunner]`` and ``[server:<name>]``.
 
 [mcrunnerd] section
------------------------
+-------------------
 
 This section contains properties used by the daemon process.
 
@@ -27,7 +27,7 @@ This section contains properties used by the daemon process.
   *Required*: no
 
 [mcrunner] section
-----------------------
+------------------
 
 This section contains properties used by the client process.
 
@@ -40,7 +40,7 @@ This section contains properties used by the client process.
   *Required*: yes
 
 [server:<name>] section
----------------------------
+-----------------------
 
 This section contains properties for a Minecraft server that MCRunner should manage.
 This section can appear multiple times as long as the server names are unique.
