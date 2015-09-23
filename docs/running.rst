@@ -1,7 +1,7 @@
 Running MCRunner
 ================
 
-First rename the sample configuration file::
+If running for the first time, rename the sample configuration file::
 
    mv /etc/mcrunner/mcrunner.sample.conf /etc/mcrunner/mcrunner.conf
 
@@ -15,6 +15,8 @@ The configuration file can contain multiple named 'server' sections that define 
    path=/path/to/server
    jar=spigot.jar
    opts=-Xms1G -Xmx2G
+
+More documentation about possible configuration values and their purpose can be found in :doc:`configuration`
 
 mcrunnerd
 ---------

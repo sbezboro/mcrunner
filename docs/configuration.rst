@@ -3,9 +3,9 @@ Configuration
 
 By default `mcrunnerd` and `mcrunner` look at /etc/mcrunner/mcrunner.conf for configuration.
 
-The configuration file contains three different sections, `[mcrunnerd]`, `[mcrunner]` and `[server:<name>]`.
+The configuration file contains three different sections, ``[mcrunnerd]``, ``[mcrunner]`` and ``[server:<name>]``.
 
-``[mcrunnerd]`` section
+[mcrunnerd] section
 -----------------------
 
 This section contains properties used by the daemon process.
@@ -26,7 +26,7 @@ This section contains properties used by the daemon process.
 
   *Required*: no
 
-``[mcrunner]`` section
+[mcrunner] section
 ----------------------
 
 This section contains properties used by the client process.
@@ -39,7 +39,7 @@ This section contains properties used by the client process.
 
   *Required*: yes
 
-``[server:<name>]`` section
+[server:<name>] section
 ---------------------------
 
 This section contains properties for a Minecraft server that MCRunner should manage.
