@@ -91,7 +91,7 @@ class MCRunner(Daemon):
 
                 # convert bool values
                 for k, v in items_dict.items():
-                    if isinstance(v, basestring):
+                    if isinstance(v, str):
                         if v.lower() in ('false', 'no', 'off'):
                             items_dict[k] = False
                         elif v.lower() in ('true', 'yes', 'on'):
