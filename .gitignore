@@ -58,3 +58,6 @@ docs/.buildinfo
 
 # PyBuilder
 target/
+
+# PyCharm
+.idea/

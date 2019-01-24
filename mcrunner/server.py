@@ -27,13 +27,19 @@ class MinecraftServer(object):
     opts = None
     pipe = None
 
+    restart_on_plugin_update = False
+
     output = None
 
-    def __init__(self, name, path, jar, opts):
+    def __init__(self, name, path, jar, opts, **kwargs):
         self.name = name
         self.path = path
         self.jar = jar
         self.opts = opts
+
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
 
     def _start_jar(self, args):
         self.pipe = subprocess.Popen(

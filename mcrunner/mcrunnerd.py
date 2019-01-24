@@ -16,6 +16,7 @@ import pwd
 import socket
 import sys
 
+from mcrunner import __version__
 from mcrunner.connection import ServerSocketConnection
 from mcrunner.daemon import Daemon
 from mcrunner.exceptions import (
@@ -83,11 +84,25 @@ class MCRunner(Daemon):
                 self.sock_file = config.get(section, 'url')
             elif section.startswith('server:'):
                 _, name = section.split('server:')
+
+                items = config.items(section)
+
+                items_dict = dict(items)
+
+                # convert bool values
+                for k, v in items_dict.items():
+                    if isinstance(v, basestring):
+                        if v.lower() in ('false', 'no', 'off'):
+                            items_dict[k] = False
+                        elif v.lower() in ('true', 'yes', 'on'):
+                            items_dict[k] = True
+
                 self.servers[name] = MinecraftServer(
                     name,
-                    config.get(section, 'path'),
-                    config.get(section, 'jar'),
-                    config.get(section, 'opts')
+                    items_dict.pop('path'),
+                    items_dict.pop('jar'),
+                    items_dict.pop('opts'),
+                    **items_dict
                 )
 
     def socket_server(self):
@@ -258,9 +273,15 @@ class MCRunner(Daemon):
         """
         atexit.register(self.on_exit)
 
-        self.logger.info('Starting mcrunnerd...')
-        sock = self.socket_server()
-        self.logger.info('mcrunnerd started.')
+        self._log_and_output('info', 'Starting mcrunnerd (%s)...' % __version__)
+
+        try:
+            sock = self.socket_server()
+        except Exception as e:
+            self._log_and_output('exception', 'Could not start mcrunnerd: %s' % str(e))
+            return
+
+        self._log_and_output('info', 'mcrunnerd (%s) started.' % __version__)
 
         while True:
             try:
@@ -281,12 +302,21 @@ class MCRunner(Daemon):
                     self.logger.debug('Closing socket connection')
                     connection.close()
             except socket.error:
-                self.logger.exception('Error during socket connection')
+                self._log_and_output('exception', 'Error during socket connection')
             except SystemExit:
-                self.logger.info('Stopping mcrunnerd...')
+                self._log_and_output('info', 'Stopping mcrunnerd (%s)...' % __version__)
                 break
 
-        self.logger.info('mcrunnerd stopped.')
+        self._log_and_output('info', 'mcrunnerd (%s) stopped.' % __version__)
+
+    def _log_and_output(self, level, message):
+        if level in ['debug', 'info', 'warn', 'error', 'exception']:
+            getattr(self.logger, level)(message)
+
+        if level in ['error', 'exception']:
+            _error(message)
+        elif level != 'debug':
+            _output(message)
 
 
 def _output(string):

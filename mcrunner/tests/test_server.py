@@ -22,11 +22,16 @@ class MinecraftServerTestCase(unittest.TestCase):
             'name',
             'path/to/jar',
             'craftbukkit.jar',
-            '-arg_1 -arg_2'
+            '-arg_1 -arg_2',
+            missing_key='val',
+            restart_on_plugin_update=True,
         )
 
     def test_start(self):
         self._create_server()
+
+        assert not hasattr(self.server, 'missing_key')
+        assert self.server.restart_on_plugin_update is True
 
         subprocess.Popen = mock.MagicMock()
 

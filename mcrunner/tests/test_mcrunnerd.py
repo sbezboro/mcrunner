@@ -1,10 +1,12 @@
 import logging
 import mock
 import os
+import pytest
 import socket
 import sys
 import tempfile
 import unittest
+
 
 from mcrunner import mcrunnerd
 from mcrunner.exceptions import ServerNotRunningException, ServerStartException
@@ -23,11 +25,13 @@ url=/tmp/mcrunner.sock
 path=/path/to/server1
 jar=spigot.jar
 opts=-Xms1G -Xmx8G
+restart_on_plugin_update=false
 
 [server:creative]
 path=/path/to/server2
 jar=craftbukkit.jar
 opts=-Xms8G -Xmx16G
+restart_on_plugin_update=true
 
 [empty_section]
 """
@@ -249,6 +253,16 @@ class MCRunnerTestCase(unittest.TestCase):
                     with self.assertRaises(SystemExit):
                         daemon.set_uid()
 
+    def test_run_startup_socket_error(self):
+        self._set_up_daemon()
+
+        self.daemon.socket_server = mock.MagicMock(side_effect=OSError)
+
+        self.daemon.run()
+
+        assert self.daemon.logger.exception.call_count == 1
+        assert self.daemon.logger.exception.call_args[0] == ('Could not start mcrunnerd: ',)
+
     def test_run_no_message(self):
         self._set_up_daemon_with_recv([
             'some data',
@@ -436,6 +450,12 @@ class MCRunnerTestCase(unittest.TestCase):
 
         assert self.mock_connection.send_message.call_count == 1
         assert self.mock_connection.send_message.call_args[0] == ('Minecraft server "survival" not running',)
+
+    def test_log_debug(self):
+        self._set_up_daemon()
+
+        for level in ['debug', 'info', 'warn', 'error', 'exception', 'bad_level']:
+            self.daemon._log_and_output(level, 'some message')
 
 
 class MCRunnerMainTestCase(unittest.TestCase):

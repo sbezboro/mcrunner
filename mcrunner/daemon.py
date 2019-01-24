@@ -42,7 +42,7 @@ class Daemon(object):
     def __init__(self, pidfile, stdin=os.devnull,
                  stdout=os.devnull, stderr=os.devnull,
                  home_dir='.', umask=int('022', 8),
-                 verbose=1, use_gevent=False):
+                 verbose=0, use_gevent=False):
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr
