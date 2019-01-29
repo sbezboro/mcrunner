@@ -75,7 +75,7 @@ class MinecraftServer(object):
         except OSError as e:
             message = 'Could not start server "%s"! Reason: %s' % (self.name, str(e))
 
-            logger.warn(message)
+            logger.warning(message)
             if connection:
                 connection.send_message(message)
 
@@ -171,7 +171,7 @@ class MinecraftServer(object):
             from watchdog.observers import Observer
             from mcrunner.plugin_change import PluginChangeEventHandler
         except ImportError:
-            logger.warn('Cannot start plugin change observer, watchdog package not installed.')
+            logger.warning('Cannot start plugin change observer, watchdog package not installed.')
             return None
 
         path = '%s/plugins/' % self.path
@@ -181,7 +181,7 @@ class MinecraftServer(object):
         try:
             observer.schedule(event_handler, path, recursive=False)
         except OSError as e:
-            logger.warn('Cannot start plugin change observer, reason: %s.' % str(e))
+            logger.warning('Cannot start plugin change observer, reason: %s.' % str(e))
             return None
 
         return observer

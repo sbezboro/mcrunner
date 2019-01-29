@@ -25,14 +25,14 @@ class MinecraftServerTestCase(unittest.TestCase):
             'craftbukkit.jar',
             '-arg_1 -arg_2',
             missing_key='val',
-            restart_on_plugin_update=True,
+            restart_on_plugin_update=False,
         )
 
     def test_start(self):
         self._create_server()
 
         assert not hasattr(self.server, 'missing_key')
-        assert self.server.restart_on_plugin_update is True
+        assert self.server.restart_on_plugin_update is False
 
         subprocess.Popen = mock.MagicMock()
 
@@ -67,6 +67,7 @@ class MinecraftServerTestCase(unittest.TestCase):
 
     def test_start_with_plugin_change_observer(self):
         self._create_server()
+        self.server.restart_on_plugin_update = True
 
         subprocess.Popen = mock.MagicMock()
 

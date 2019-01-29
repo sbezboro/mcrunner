@@ -445,7 +445,7 @@ class MCRunnerTestCase(unittest.TestCase):
     def test_log_debug(self):
         self._set_up_daemon()
 
-        for level in ['debug', 'info', 'warn', 'error', 'exception', 'bad_level']:
+        for level in ['debug', 'info', 'warning', 'error', 'exception', 'bad_level']:
             self.daemon._log_and_output(level, 'some message')
 
 

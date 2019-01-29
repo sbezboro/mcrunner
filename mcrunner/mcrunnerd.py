@@ -190,7 +190,7 @@ class MCRunner(Daemon):
         except ServerNotRunningException:
             message = 'Minecraft server "%s" not running' % name
 
-            logger.warn(message)
+            logger.warning(message)
             connection.send_message(message)
         else:
             connection.send_message('Sent command to Minecraft server "%s": "%s"' % (name, command))
@@ -298,7 +298,7 @@ class MCRunner(Daemon):
         self._log_and_output('info', 'mcrunnerd (%s) stopped.' % __version__)
 
     def _log_and_output(self, level, message):
-        if level in ['debug', 'info', 'warn', 'error', 'exception']:
+        if level in ['debug', 'info', 'warning', 'error', 'exception']:
             getattr(logger, level)(message)
 
         if level in ['error', 'exception']:
