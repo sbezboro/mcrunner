@@ -69,3 +69,11 @@ The name is used when interfacing with the `mcrunner` command line.
   *Default*: none
 
   *Required*: no
+
+``restart_on_plugin_update``
+
+  Boolean that turns on/off automatic server restart if a plugin is updated or added to the ``plugins/`` directory of the server.
+
+  *Default*: false
+
+  *Required*: no
