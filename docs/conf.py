@@ -18,9 +18,9 @@ import shlex
 import sys
 
 mcrunner_version = ''
-with open('../mcrunner/__init__.py', 'r') as fd:
+with open('../setup.py', 'r') as fd:
     mcrunner_version = re.search(
-        r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
+        r'^version\s*=\s*[\'"]([^\'"]*)[\'"]',
         fd.read(),
         re.MULTILINE
     ).group(1)
