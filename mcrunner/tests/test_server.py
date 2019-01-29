@@ -12,6 +12,7 @@ from mcrunner.server import (
     MinecraftServer,
     SERVER_STOP_TIMEOUT_SEC,
     ServerNotRunningException,
+    ServerStatus
 )
 
 
@@ -64,6 +65,19 @@ class MinecraftServerTestCase(unittest.TestCase):
 
         assert str(exc.exception) == 'File not found'
 
+    def test_start_with_plugin_change_observer(self):
+        self._create_server()
+
+        subprocess.Popen = mock.MagicMock()
+
+        observer = mock.MagicMock()
+
+        self.server._get_plugin_change_observer = mock.MagicMock(return_value=observer)
+
+        self.server.start()
+
+        assert observer.start.call_count == 1
+
     def test_stop(self):
         self._create_server()
 
@@ -85,7 +99,20 @@ class MinecraftServerTestCase(unittest.TestCase):
         self._create_server()
 
         self.server.run_command = mock.MagicMock()
-        self.server.pipe = mock.MagicMock()
+        pipe = mock.MagicMock()
+        self.server.pipe = pipe
+        self.server.pipe.wait = mock.MagicMock(side_effect=subprocess.TimeoutExpired('cmd', 1))
+
+        self.server.stop()
+
+        assert pipe.terminate.call_count == 1
+
+    def test_stop_timeout_and_terminate_with_connection(self):
+        self._create_server()
+
+        self.server.run_command = mock.MagicMock()
+        pipe = mock.MagicMock()
+        self.server.pipe = pipe
         self.server.pipe.wait = mock.MagicMock(side_effect=subprocess.TimeoutExpired('cmd', 1))
 
         mock_connection = mock.MagicMock()
@@ -94,12 +121,22 @@ class MinecraftServerTestCase(unittest.TestCase):
 
         assert mock_connection.send_message.call_count == 2
         assert mock_connection.send_message.call_args_list[0][0] == (
-            'Stopping server name...',
+            'Stopping Minecraft server "name"...',
         )
         assert mock_connection.send_message.call_args_list[1][0] == (
-            'Server did not stop within %s seconds. Killing...' % SERVER_STOP_TIMEOUT_SEC,
+            'Server "name" did not stop within %s seconds. Killing...' % SERVER_STOP_TIMEOUT_SEC,
         )
-        assert self.server.pipe.terminate.call_count == 1
+        assert pipe.terminate.call_count == 1
+
+    def test_restart(self):
+        self._create_server()
+
+        subprocess.Popen = mock.MagicMock()
+
+        self.server.restart(plugin_update=False)
+        self.server.restart(plugin_update=True)
+
+        assert subprocess.Popen.call_count == 2
 
     def test_get_status(self):
         self._create_server()
@@ -109,7 +146,7 @@ class MinecraftServerTestCase(unittest.TestCase):
 
         status = self.server.get_status()
 
-        assert status == 'Running'
+        assert status == ServerStatus.RUNNING
 
         assert self.server.run_command.call_count == 1
         assert self.server.run_command.call_args[0] == ('ping',)
@@ -119,7 +156,7 @@ class MinecraftServerTestCase(unittest.TestCase):
 
         status = self.server.get_status()
 
-        assert status == 'Not running'
+        assert status == ServerStatus.STOPPED
 
     def test_run_command(self):
         self._create_server()
@@ -139,3 +176,13 @@ class MinecraftServerTestCase(unittest.TestCase):
 
         with self.assertRaises(ServerNotRunningException):
             self.server.run_command('some command')
+
+    def test_get_plugin_change_observer(self):
+        self._create_server()
+
+        observer = mock.MagicMock()
+
+        with mock.patch('watchdog.observers.Observer', return_value=observer):
+            assert self.server._get_plugin_change_observer()
+
+        assert observer.schedule.call_count == 1

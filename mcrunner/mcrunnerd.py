@@ -26,7 +26,9 @@ from mcrunner.exceptions import (
     ServerStartException,
 )
 from mcrunner.server import MinecraftServer
+from mcrunner.server_status import ServerStatus
 
+logger = logging.getLogger(__name__)
 
 MCRUNNERD_COMMAND_DELIMITER = '|+|'
 
@@ -48,7 +50,6 @@ class MCRunner(Daemon):
     log_file = None
     user = None
     sock_file = None
-    logger = None
 
     servers = None
 
@@ -61,7 +62,7 @@ class MCRunner(Daemon):
 
         self.load_config()
 
-        self.logger = self.create_logger()
+        self.setup_logger()
 
         self.set_uid()
 
@@ -120,19 +121,17 @@ class MCRunner(Daemon):
 
         return sock
 
-    def create_logger(self):
+    def setup_logger(self):
         """
-        Create simple logger.
+        Setup root logger for use in all modules.
         """
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         handler = logging.handlers.RotatingFileHandler(self.log_file, maxBytes=2000000, backupCount=10)
         handler.setFormatter(formatter)
 
-        logger = logging.getLogger(__name__)
-        logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
-
-        return logger
+        root_logger = logging.getLogger()
+        root_logger.addHandler(handler)
+        root_logger.setLevel(logging.INFO)
 
     def get_status(self, connection):
         """
@@ -141,7 +140,7 @@ class MCRunner(Daemon):
         response = []
 
         for server_name, server in self.servers.items():
-            response.append('%s: %s' % (server_name, server.get_status()))
+            response.append('%s: %s' % (server_name, server.get_status().value))
 
         connection.send_message('\n'.join(response))
 
@@ -152,19 +151,13 @@ class MCRunner(Daemon):
         server = self.servers.get(name)
         if not server:
             if connection:
-                connection.send_message('Minecraft server "%s" not defined' % name)
+                connection.send_message('Minecraft server "%s" not defined.' % name)
             return
-
-        self.logger.info('Starting Minecraft server "%s"', name)
 
         try:
             server.start(connection=connection)
-        except ServerStartException as e:
-            message = 'Could not start server! Reason: %s' % str(e)
-
-            self.logger.warn(message)
-            if connection:
-                connection.send_message(message)
+        except ServerStartException:
+            pass
 
     def stop_minecraft_server(self, name, connection=None):
         """
@@ -176,16 +169,10 @@ class MCRunner(Daemon):
                 connection.send_message('Minecraft server "%s" not defined' % name)
             return
 
-        self.logger.info('Stopping Minecraft server "%s"', name)
-
         try:
             server.stop(connection=connection)
         except ServerNotRunningException:
-            message = 'Minecraft server "%s" not running' % name
-
-            self.logger.warn(message)
-            if connection:
-                connection.send_message(message)
+            pass
 
     def send_command(self, name, command, connection):
         """
@@ -196,14 +183,14 @@ class MCRunner(Daemon):
             connection.send_message('Minecraft server "%s" not defined' % name)
             return
 
-        self.logger.info('Sending command to server "%s": "%s"', name, command)
+        logger.info('Sending command to server "%s": "%s"', name, command)
 
         try:
             server.run_command(command, connection=connection)
         except ServerNotRunningException:
             message = 'Minecraft server "%s" not running' % name
 
-            self.logger.warn(message)
+            logger.warn(message)
             connection.send_message(message)
         else:
             connection.send_message('Sent command to Minecraft server "%s": "%s"' % (name, command))
@@ -232,8 +219,9 @@ class MCRunner(Daemon):
         """
         Exit signal handler, attempt to shut down all Minecraft servers.
         """
-        for server_name in self.servers:
-            self.stop_minecraft_server(server_name)
+        for server_name, server in self.servers.items():
+            if server.get_status() == ServerStatus.RUNNING:
+                self.stop_minecraft_server(server_name)
 
     def set_uid(self):
         """
@@ -245,7 +233,7 @@ class MCRunner(Daemon):
         try:
             pwnam = pwd.getpwnam(self.user)
         except KeyError:
-            self.logger.error('User not found for setuid: %s' % self.user)
+            logger.error('User not found for setuid: %s' % self.user)
             sys.exit(1)
 
         uid = pwnam.pw_uid
@@ -257,13 +245,13 @@ class MCRunner(Daemon):
             return
 
         if current_uid != 0:
-            self.logger.error('Can\'t setuid if not running as root')
+            logger.error('Can\'t setuid if not running as root')
             sys.exit(1)
 
         try:
             os.setuid(uid)
         except OSError:
-            self.logger.error('Could not switch to user %s' % self.user)
+            logger.error('Could not switch to user %s' % self.user)
             sys.exit(1)
 
     def run(self):
@@ -285,21 +273,21 @@ class MCRunner(Daemon):
 
         while True:
             try:
-                self.logger.debug('Awaiting socket connection')
+                logger.debug('Awaiting socket connection')
                 conn, client_address = sock.accept()
 
                 connection = ServerSocketConnection(conn)
 
-                self.logger.debug('Established socket connection')
+                logger.debug('Established socket connection')
 
                 try:
                     data = connection.receive_message()
 
-                    self.logger.debug('Handling socket data')
+                    logger.debug('Handling socket data')
                     self.handle_socket_data(data, connection)
-                    self.logger.debug('Socket data handled')
+                    logger.debug('Socket data handled')
                 finally:
-                    self.logger.debug('Closing socket connection')
+                    logger.debug('Closing socket connection')
                     connection.close()
             except socket.error:
                 self._log_and_output('exception', 'Error during socket connection')
@@ -311,7 +299,7 @@ class MCRunner(Daemon):
 
     def _log_and_output(self, level, message):
         if level in ['debug', 'info', 'warn', 'error', 'exception']:
-            getattr(self.logger, level)(message)
+            getattr(logger, level)(message)
 
         if level in ['error', 'exception']:
             _error(message)
