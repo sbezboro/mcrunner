@@ -141,6 +141,18 @@ class MCRunnerTestCase(unittest.TestCase):
         assert mock_sock.listen.call_count == 1
         assert mock_sock.listen.call_args[0] == (1,)
 
+    def test_setup_logger(self):
+        daemon = self._set_up_daemon()
+
+        mock_logger = mock.MagicMock()
+
+        with mock.patch('logging.handlers.RotatingFileHandler'):
+            with mock.patch('logging.getLogger', return_value=mock_logger):
+                daemon.setup_logger()
+
+        assert mock_logger.addHandler.called
+        assert mock_logger.setLevel.called
+
     def test_get_status(self):
         daemon = self._set_up_daemon()
 

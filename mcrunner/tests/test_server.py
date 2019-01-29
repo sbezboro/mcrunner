@@ -79,6 +79,16 @@ class MinecraftServerTestCase(unittest.TestCase):
 
         assert observer.start.call_count == 1
 
+    def test_start_with_plugin_change_observer_none(self):
+        self._create_server()
+        self.server.restart_on_plugin_update = True
+
+        subprocess.Popen = mock.MagicMock()
+
+        self.server._get_plugin_change_observer = mock.MagicMock(return_value=None)
+
+        self.server.start()
+
     def test_stop(self):
         self._create_server()
 
@@ -187,3 +197,12 @@ class MinecraftServerTestCase(unittest.TestCase):
             assert self.server._get_plugin_change_observer()
 
         assert observer.schedule.call_count == 1
+
+    def test_get_plugin_change_observer_error(self):
+        self._create_server()
+
+        observer = mock.MagicMock()
+        observer.schedule = mock.MagicMock(side_effect=OSError('file not found'))
+
+        with mock.patch('watchdog.observers.Observer', return_value=observer):
+            assert self.server._get_plugin_change_observer() is None
