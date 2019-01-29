@@ -31,8 +31,9 @@ class PyTest(TestCommand):
         raise SystemExit(errno)
 
 install_requires = []
-if sys.version_info < (3, 2):
+if sys.version_info < (3, 4):
     install_requires.append('enum34==1.1.6')
+if sys.version_info < (3, 2):
     install_requires.append('subprocess32==3.2.6')
 
 setup(

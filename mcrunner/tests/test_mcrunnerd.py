@@ -55,10 +55,11 @@ class MCRunnerTestCase(unittest.TestCase):
     def _set_up_daemon(self):
         self.logger = mock.MagicMock()
 
-        self.daemon = MCRunner(
-            config_file=self.config_file.name,
-            pid_file=self.pid_file.name
-        )
+        with mock.patch.object(MCRunner, 'setup_logger'):
+            self.daemon = MCRunner(
+                config_file=self.config_file.name,
+                pid_file=self.pid_file.name
+            )
 
         return self.daemon
 
