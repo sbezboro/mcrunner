@@ -14,11 +14,11 @@ with open('mcrunner/__init__.py', 'r') as fd:
 
 
 class PyTest(TestCommand):
-    user_options = [('pytest-args=', 'a', "Arguments to pass to py.test")]
+    user_options = []
 
     def initialize_options(self):
         TestCommand.initialize_options(self)
-        self.pytest_args = ''
+        self.pytest_args = []
 
     def finalize_options(self):
         TestCommand.finalize_options(self)
