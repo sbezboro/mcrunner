@@ -3,7 +3,7 @@ from setuptools.command.test import test as TestCommand
 import sys
 
 
-version = '0.1.4'
+version = '0.1.5.dev0'
 
 
 class PyTest(TestCommand):
