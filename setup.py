@@ -1,16 +1,9 @@
-import re
 from setuptools import find_packages, setup
 from setuptools.command.test import test as TestCommand
 import sys
 
 
-version = ''
-with open('mcrunner/__init__.py', 'r') as fd:
-    version = re.search(
-        r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
-        fd.read(),
-        re.MULTILINE
-    ).group(1)
+version = '0.1.4.dev0'
 
 
 class PyTest(TestCommand):
