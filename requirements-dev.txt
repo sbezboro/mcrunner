@@ -9,7 +9,7 @@ pathlib2==2.3.3
 pathtools==0.1.2
 pbr==1.6.0
 pluggy==0.8.1
-py==1.7.0
+py==1.10.0
 pytest==4.1.1
 pytest-cov==2.6.1
 PyYAML==4.2b1
